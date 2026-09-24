@@ -1,72 +1,31 @@
 <?php
 /**
- * WIP Management Portal - Process Master (UI Only)
+ * WIP Management Portal - Process Master
  */
 require_once __DIR__ . '/auth/check_auth.php';
+require_once __DIR__ . '/config/db.php';
 
-// Initial Mock / Seed data for Process Master matching requested fields:
-// Process Code, Process Name, Active (Status), Remarks
-$processes = [
-    [
-        'id' => 1,
-        'process_code' => 'PRC-001',
-        'process_name' => 'Blanking & Piercing',
-        'status' => 'Active',
-        'remarks' => 'Primary sheet metal cutting on 100T mechanical press'
-    ],
-    [
-        'id' => 2,
-        'process_code' => 'PRC-002',
-        'process_name' => 'Laser Cutting',
-        'status' => 'Active',
-        'remarks' => 'High precision CNC fiber laser cutting machine'
-    ],
-    [
-        'id' => 3,
-        'process_code' => 'PRC-003',
-        'process_name' => 'CNC Bending',
-        'status' => 'Active',
-        'remarks' => 'Multi-axis hydraulic press brake bending operation'
-    ],
-    [
-        'id' => 4,
-        'process_code' => 'PRC-004',
-        'process_name' => 'CNC Turning',
-        'status' => 'Active',
-        'remarks' => 'Shaft, bush, and round bar precision machining'
-    ],
-    [
-        'id' => 5,
-        'process_code' => 'PRC-005',
-        'process_name' => 'MIG / TIG Welding',
-        'status' => 'Active',
-        'remarks' => 'Fixture based assembly welding'
-    ],
-    [
-        'id' => 6,
-        'process_code' => 'PRC-006',
-        'process_name' => 'Powder Coating',
-        'status' => 'Active',
-        'remarks' => '7-tank pre-treatment & electrostatic powder coating'
-    ],
-    [
-        'id' => 7,
-        'process_code' => 'PRC-007',
-        'process_name' => 'Buffing & Polishing',
-        'status' => 'Inactive',
-        'remarks' => 'Manual surface finishing for cosmetic components'
-    ]
-];
-
-$totalCount = count($processes);
+// Fetch real data from MSSQL database
+$pdo = getDBConnection();
+$processes = [];
+$totalCount = 0;
 $activeCount = 0;
 $inactiveCount = 0;
 
-foreach ($processes as $p) {
-    if (strcasecmp($p['status'], 'Active') === 0) {
-        $activeCount++;
-    } else {
-        $inactiveCount++;
+if ($pdo) {
+    try {
+        $stmt = $pdo->query("SELECT id, process_code, process_name, status, remarks FROM process_master ORDER BY id DESC");
+        $processes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $totalCount = count($processes);
+        foreach ($processes as $p) {
+            if (strcasecmp($p['status'] ?? '', 'active') === 0) {
+                $activeCount++;
+            } else {
+                $inactiveCount++;
+            }
+        }
+    } catch (PDOException $e) {
+        $dbError = $e->getMessage();
     }
 }
 
@@ -270,9 +229,15 @@ $pageTitle = 'Process Master';
     }
 
     .process-form-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 14px;
+    }
+
+    @media (max-width: 520px) {
+      .process-form-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     .prc-form-group {
@@ -303,8 +268,9 @@ $pageTitle = 'Process Master';
     }
 
     .prc-form-group textarea.form-control {
-      height: 78px;
-      padding: 10px 12px;
+      height: auto;
+      min-height: 64px;
+      padding: 8px 12px;
       resize: vertical;
     }
 
@@ -462,11 +428,11 @@ $pageTitle = 'Process Master';
               <thead>
                 <tr>
                   <th style="width: 50px;">Sr No.</th>
-                  <th>Process Code</th>
+                  <th style="width: 150px;">Process Code</th>
                   <th>Process Name</th>
-                  <th>Status</th>
+                  <th style="width: 100px;">Status</th>
                   <th>Remarks</th>
-                  <th>Action</th>
+                  <th style="width: 130px;">Action</th>
                 </tr>
               </thead>
               <tbody id="prcTableBody">
@@ -478,16 +444,16 @@ $pageTitle = 'Process Master';
                     ?>
                     <tr data-id="<?php echo htmlspecialchars($item['id']); ?>">
                       <td style="color: var(--text-sub); font-weight: 600;"><?php echo $sr++; ?></td>
-                      <td><strong><?php echo htmlspecialchars($item['process_code']); ?></strong></td>
-                      <td><?php echo htmlspecialchars($item['process_name']); ?></td>
-                      <td>
+                      <td><strong class="col-prc-code"><?php echo htmlspecialchars($item['process_code']); ?></strong></td>
+                      <td class="col-prc-name"><?php echo htmlspecialchars($item['process_name']); ?></td>
+                      <td class="col-prc-status">
                         <?php if ($isActive): ?>
                           <span class="tag tag-completed">Active</span>
                         <?php else: ?>
                           <span class="tag" style="background:#f1f5f9; color:#64748b;">Inactive</span>
                         <?php endif; ?>
                       </td>
-                      <td><?php echo htmlspecialchars($item['remarks'] ?: '-'); ?></td>
+                      <td class="col-prc-remarks"><?php echo htmlspecialchars($item['remarks'] ?: '-'); ?></td>
                       <td>
                         <div style="display: flex; gap: 6px;">
                           <button type="button" class="btn-edit" title="Edit Process">Edit</button>
@@ -534,20 +500,26 @@ $pageTitle = 'Process Master';
               <input type="text" id="inputProcessCode" class="form-control" placeholder="e.g., PRC-008" required>
             </div>
 
-            <!-- 2. Process Name -->
+            <!-- 2. Status -->
             <div class="prc-form-group">
+              <label for="inputStatus">Status *</label>
+              <select id="inputStatus" class="form-control" required>
+                <option value="Active" selected>Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+
+            <!-- 3. Process Name -->
+            <div class="prc-form-group" style="grid-column: 1 / -1;">
               <label for="inputProcessName">Process Name *</label>
               <input type="text" id="inputProcessName" class="form-control" placeholder="e.g., Deburring & Chamfering" required>
             </div>
 
-            <!-- 3. Remarks -->
-            <div class="prc-form-group">
+            <!-- 4. Remarks -->
+            <div class="prc-form-group" style="grid-column: 1 / -1;">
               <label for="inputRemarks">Remarks</label>
-              <textarea id="inputRemarks" class="form-control" placeholder="Optional notes, machine details, or operation instructions..."></textarea>
+              <textarea id="inputRemarks" class="form-control" rows="2" placeholder="Optional notes, machine details, or operation instructions..."></textarea>
             </div>
-
-            <!-- Hidden Status field (Default: Active) -->
-            <input type="hidden" id="inputStatus" value="Active">
 
           </div>
         </div>
@@ -574,7 +546,7 @@ $pageTitle = 'Process Master';
         </svg>
       </div>
       <h3 class="confirm-title">Confirm Deletion</h3>
-      <p class="confirm-desc">Are you sure you want to delete process <strong id="deleteTargetCode" style="color:var(--text-main);"></strong>? This operation will be removed from the list.</p>
+      <p class="confirm-desc">Are you sure you want to delete process <strong id="deleteTargetCode" style="color:var(--text-main);"></strong>? This operation will be removed from the database.</p>
       <div class="confirm-actions">
         <button type="button" class="btn-secondary" id="cancelDeleteBtn">Cancel</button>
         <button type="button" class="btn-danger-confirm" id="confirmDeleteBtn">Yes, Delete</button>
@@ -582,7 +554,7 @@ $pageTitle = 'Process Master';
     </div>
   </div>
 
-  <!-- Client-side Interactive Logic (UI Only) -->
+  <!-- Client-side Interactive Logic & Database API Integration -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       // DOM Elements
@@ -604,6 +576,7 @@ $pageTitle = 'Process Master';
       const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
       const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
+      let pendingDeleteId = null;
       let pendingDeleteRow = null;
       let pendingDeleteCode = null;
 
@@ -647,6 +620,17 @@ $pageTitle = 'Process Master';
         }, 4000);
       };
 
+      // Helper function to escape HTML
+      function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
       // Re-index Sr No. across all visible rows
       function reindexSrNo() {
         const rows = Array.from(prcTableBody.querySelectorAll('tr')).filter(r => r.id !== 'emptyTableRow');
@@ -665,10 +649,10 @@ $pageTitle = 'Process Master';
         let inactive = 0;
 
         rows.forEach(r => {
-          const cells = r.querySelectorAll('td');
-          if (cells.length >= 5) {
-            const statusText = cells[3].textContent.trim();
-            if (statusText.toLowerCase().includes('active')) {
+          const statusCell = r.querySelector('.col-prc-status');
+          if (statusCell) {
+            const statusText = statusCell.textContent.trim().toLowerCase();
+            if (statusText.includes('active')) {
               active++;
             } else {
               inactive++;
@@ -697,17 +681,25 @@ $pageTitle = 'Process Master';
       function openModal(title = '+ Add Process', buttonText = '+ Save Process') {
         modalFormTitle.textContent = title;
         savePrcSubmitBtn.textContent = buttonText;
-        prcPopupModal.classList.add('active');
-        document.body.style.overflow = 'hidden';
+        ptPopupModalActive(true);
         setTimeout(() => {
           document.getElementById('inputProcessCode').focus();
         }, 100);
       }
 
+      function ptPopupModalActive(isActive) {
+        if (isActive) {
+          prcPopupModal.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        } else {
+          prcPopupModal.classList.remove('active');
+          document.body.style.overflow = '';
+        }
+      }
+
       // Close Form Modal
       function closeModal() {
-        prcPopupModal.classList.remove('active');
-        document.body.style.overflow = '';
+        ptPopupModalActive(false);
         prcPopupForm.reset();
         editItemId.value = '';
         document.getElementById('inputStatus').value = 'Active';
@@ -739,6 +731,7 @@ $pageTitle = 'Process Master';
           deleteConfirmModal.classList.remove('active');
           document.body.style.overflow = '';
         }
+        pendingDeleteId = null;
         pendingDeleteRow = null;
         pendingDeleteCode = null;
       }
@@ -772,62 +765,102 @@ $pageTitle = 'Process Master';
         });
       }
 
-      // Submit Form: Client-Side Interactive Handling (UI Only)
+      // Submit Form: Save / Update to Database API
       if (prcPopupForm) {
-        prcPopupForm.addEventListener('submit', (e) => {
+        prcPopupForm.addEventListener('submit', async (e) => {
           e.preventDefault();
 
           const id = editItemId.value ? parseInt(editItemId.value, 10) : 0;
           const code = document.getElementById('inputProcessCode').value.trim();
           const name = document.getElementById('inputProcessName').value.trim();
-          const remarks = document.getElementById('inputRemarks').value.trim() || '-';
+          const remarks = document.getElementById('inputRemarks').value.trim();
           const status = document.getElementById('inputStatus').value || 'Active';
 
-          const activeTag = status === 'Active' 
-            ? '<span class="tag tag-completed">Active</span>' 
-            : '<span class="tag" style="background:#f1f5f9; color:#64748b;">Inactive</span>';
-
-          const actionHtml = `
-            <div style="display: flex; gap: 6px;">
-              <button type="button" class="btn-edit" title="Edit Process">Edit</button>
-              <button type="button" class="btn-delete" title="Delete Process">Delete</button>
-            </div>
-          `;
-
-          if (id > 0) {
-            // Update existing row
-            const row = prcTableBody.querySelector(`tr[data-id="${id}"]`);
-            if (row) {
-              row.children[1].innerHTML = `<strong>${code}</strong>`;
-              row.children[2].textContent = name;
-              row.children[3].innerHTML = activeTag;
-              row.children[4].textContent = remarks;
-              row.children[5].innerHTML = actionHtml;
-            }
-            showToast(`Process "${code}" updated successfully.`, 'success');
-          } else {
-            // Create new row
-            const emptyRow = document.getElementById('emptyTableRow');
-            if (emptyRow) emptyRow.remove();
-
-            const newId = Date.now();
-            const tr = document.createElement('tr');
-            tr.setAttribute('data-id', newId);
-            tr.innerHTML = `
-              <td style="color: var(--text-sub); font-weight: 600;">1</td>
-              <td><strong>${code}</strong></td>
-              <td>${name}</td>
-              <td>${activeTag}</td>
-              <td>${remarks}</td>
-              <td>${actionHtml}</td>
-            `;
-            prcTableBody.prepend(tr);
-            reindexSrNo();
-            showToast(`New Process "${code}" added successfully.`, 'success');
+          if (!code || !name) {
+            showToast('Please fill in Process Code and Process Name.', 'error');
+            return;
           }
 
-          closeModal();
-          updateCounters();
+          savePrcSubmitBtn.disabled = true;
+          const originalBtnText = savePrcSubmitBtn.textContent;
+          savePrcSubmitBtn.textContent = 'Saving...';
+
+          try {
+            const payload = {
+              action: id > 0 ? 'update' : 'create',
+              id: id,
+              process_code: code,
+              process_name: name,
+              status: status,
+              remarks: remarks
+            };
+
+            const resp = await fetch('api/process_master.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            const res = await resp.json();
+
+            if (!res.success) {
+              showToast(res.message || 'Error saving process.', 'error');
+              return;
+            }
+
+            const activeTag = status === 'Active' 
+              ? '<span class="tag tag-completed">Active</span>' 
+              : '<span class="tag" style="background:#f1f5f9; color:#64748b;">Inactive</span>';
+
+            const remarksDisplay = remarks || '-';
+
+            const actionHtml = `
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn-edit" title="Edit Process">Edit</button>
+                <button type="button" class="btn-delete" title="Delete Process">Delete</button>
+              </div>
+            `;
+
+            if (id > 0) {
+              // Update existing row
+              const row = prcTableBody.querySelector(`tr[data-id="${id}"]`);
+              if (row) {
+                row.querySelector('.col-prc-code').textContent = code;
+                row.querySelector('.col-prc-name').textContent = name;
+                row.querySelector('.col-prc-status').innerHTML = activeTag;
+                row.querySelector('.col-prc-remarks').textContent = remarksDisplay;
+              }
+              showToast(`Process "${code}" updated successfully.`, 'success');
+            } else {
+              // Insert new row
+              const emptyRow = document.getElementById('emptyTableRow');
+              if (emptyRow) emptyRow.remove();
+
+              const newId = res.data && res.data.id ? res.data.id : Date.now();
+              const tr = document.createElement('tr');
+              tr.setAttribute('data-id', newId);
+              tr.innerHTML = `
+                <td style="color: var(--text-sub); font-weight: 600;">1</td>
+                <td><strong class="col-prc-code">${escapeHtml(code)}</strong></td>
+                <td class="col-prc-name">${escapeHtml(name)}</td>
+                <td class="col-prc-status">${activeTag}</td>
+                <td class="col-prc-remarks">${escapeHtml(remarksDisplay)}</td>
+                <td>${actionHtml}</td>
+              `;
+              prcTableBody.prepend(tr);
+              reindexSrNo();
+              showToast(`New Process "${code}" added successfully.`, 'success');
+            }
+
+            closeModal();
+            updateCounters();
+          } catch (err) {
+            console.error(err);
+            showToast('Network error while saving process.', 'error');
+          } finally {
+            savePrcSubmitBtn.disabled = false;
+            savePrcSubmitBtn.textContent = originalBtnText;
+          }
         });
       }
 
@@ -841,15 +874,19 @@ $pageTitle = 'Process Master';
 
           // Edit Action
           if (e.target.classList.contains('btn-edit')) {
-            const cells = row.children;
-            const code = cells[1].textContent.trim();
-            const name = cells[2].textContent.trim();
-            const status = cells[3].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
-            const remarks = cells[4].textContent.trim();
+            const codeEl = row.querySelector('.col-prc-code');
+            const nameEl = row.querySelector('.col-prc-name');
+            const statusEl = row.querySelector('.col-prc-status');
+            const remarksEl = row.querySelector('.col-prc-remarks');
+
+            const code = codeEl ? codeEl.textContent.trim() : '';
+            const name = nameEl ? nameEl.textContent.trim() : '';
+            const status = (statusEl && statusEl.textContent.toLowerCase().includes('active')) ? 'Active' : 'Inactive';
+            const remarks = (remarksEl && remarksEl.textContent.trim() !== '-') ? remarksEl.textContent.trim() : '';
 
             document.getElementById('inputProcessCode').value = code;
             document.getElementById('inputProcessName').value = name;
-            document.getElementById('inputRemarks').value = remarks === '-' ? '' : remarks;
+            document.getElementById('inputRemarks').value = remarks;
             document.getElementById('inputStatus').value = status;
 
             editItemId.value = itemId;
@@ -858,7 +895,9 @@ $pageTitle = 'Process Master';
 
           // Delete Action
           if (e.target.classList.contains('btn-delete')) {
-            const code = row.children[1].textContent.trim();
+            const codeEl = row.querySelector('.col-prc-code');
+            const code = codeEl ? codeEl.textContent.trim() : 'Process';
+            pendingDeleteId = itemId;
             pendingDeleteRow = row;
             pendingDeleteCode = code;
 
@@ -871,17 +910,45 @@ $pageTitle = 'Process Master';
         });
       }
 
-      // Confirm Delete Action
+      // Confirm Delete Action with Database API
       if (confirmDeleteBtn) {
-        confirmDeleteBtn.addEventListener('click', () => {
+        confirmDeleteBtn.addEventListener('click', async () => {
           if (!pendingDeleteRow) return;
 
-          const code = pendingDeleteCode || 'Process';
-          pendingDeleteRow.remove();
-          closeDeleteConfirmModal();
-          reindexSrNo();
-          updateCounters();
-          showToast(`Process "${code}" deleted successfully.`, 'success');
+          confirmDeleteBtn.disabled = true;
+          confirmDeleteBtn.textContent = 'Deleting...';
+
+          try {
+            const resp = await fetch('api/process_master.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'delete',
+                id: pendingDeleteId,
+                process_code: pendingDeleteCode
+              })
+            });
+
+            const res = await resp.json();
+
+            if (!res.success) {
+              showToast(res.message || 'Failed to delete process.', 'error');
+              return;
+            }
+
+            const code = pendingDeleteCode || 'Process';
+            pendingDeleteRow.remove();
+            closeDeleteConfirmModal();
+            reindexSrNo();
+            updateCounters();
+            showToast(`Process "${code}" deleted successfully.`, 'success');
+          } catch (err) {
+            console.error(err);
+            showToast('Error deleting process from server.', 'error');
+          } finally {
+            confirmDeleteBtn.disabled = false;
+            confirmDeleteBtn.textContent = 'Yes, Delete';
+          }
         });
       }
 

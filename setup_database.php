@@ -180,6 +180,24 @@ try {
     ";
     $pdoApp->exec($createPartTableSql);
     echo "[OK] 'part_master' table is ready.\n";
+
+    // Create process_master Table
+    $createProcessTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='process_master' AND xtype='U')
+    BEGIN
+        CREATE TABLE process_master (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            process_code NVARCHAR(50) NOT NULL UNIQUE,
+            process_name NVARCHAR(150) NOT NULL,
+            status NVARCHAR(50) DEFAULT 'Active',
+            remarks NVARCHAR(500) NULL,
+            created_at DATETIME DEFAULT GETDATE(),
+            updated_at DATETIME DEFAULT GETDATE()
+        );
+    END
+    ";
+    $pdoApp->exec($createProcessTableSql);
+    echo "[OK] 'process_master' table is ready.\n";
 } catch (PDOException $e) {
     die("[ERROR] Failed to create tables: " . $e->getMessage() . "\n");
 }
