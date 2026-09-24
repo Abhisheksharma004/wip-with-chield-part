@@ -162,6 +162,24 @@ try {
     ";
     $pdoApp->exec($createChildPartTableSql);
     echo "[OK] 'child_part_master' table is ready.\n";
+
+    // Create part_master Table
+    $createPartTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='part_master' AND xtype='U')
+    BEGIN
+        CREATE TABLE part_master (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            part_code NVARCHAR(50) NOT NULL UNIQUE,
+            part_name NVARCHAR(150) NOT NULL,
+            child_parts NVARCHAR(MAX) NULL,
+            status NVARCHAR(50) DEFAULT 'Active',
+            created_at DATETIME DEFAULT GETDATE(),
+            updated_at DATETIME DEFAULT GETDATE()
+        );
+    END
+    ";
+    $pdoApp->exec($createPartTableSql);
+    echo "[OK] 'part_master' table is ready.\n";
 } catch (PDOException $e) {
     die("[ERROR] Failed to create tables: " . $e->getMessage() . "\n");
 }
