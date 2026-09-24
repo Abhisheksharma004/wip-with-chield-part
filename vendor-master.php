@@ -313,89 +313,16 @@ if ($pdo) {
 
   <div class="layout-container">
     
-    <!-- ==========================================
-         Simple Sidebar
-         ========================================== -->
-    <aside id="sidebar" class="sidebar">
-      
-      <!-- Brand Header -->
-      <div class="sidebar-header">
-        <h2 class="sidebar-brand">WIP Management</h2>
-        <button id="sidebarCloseBtn" class="mobile-close-btn" aria-label="Close menu">&times;</button>
-      </div>
-
-      <!-- Navigation Menu -->
-      <nav class="sidebar-menu">
-        <a href="dashboard.php" class="menu-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="9"></rect>
-            <rect x="14" y="3" width="7" height="5"></rect>
-            <rect x="14" y="12" width="7" height="9"></rect>
-            <rect x="3" y="16" width="7" height="5"></rect>
-          </svg>
-          Dashboard
-        </a>
-        <a href="vendor-master.php" class="menu-item active">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-          Vendor Master
-        </a>
-        <a href="rm-master.php" class="menu-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-          </svg>
-          RM Master
-        </a>
-      </nav>
-
-      <!-- Sidebar Bottom Logout -->
-      <div class="sidebar-bottom">
-        <a href="auth/logout.php" class="logout-link" id="logoutLink">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-          Logout
-        </a>
-      </div>
-
-    </aside>
+    <!-- Reusable Sidebar Component -->
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
     <!-- ==========================================
          Main Area
          ========================================== -->
     <div class="main-content">
       
-      <!-- Top Bar -->
-      <header class="topbar">
-        <div class="topbar-left">
-          <button id="menuToggleBtn" class="menu-toggle-btn" aria-label="Toggle navigation">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-          <h1 class="page-title">Vendor Master</h1>
-        </div>
-
-        <div class="topbar-right">
-          <span class="user-greeting">
-            Welcome, <strong><?php echo htmlspecialchars($currentUser['name']); ?></strong> 
-            <span style="font-size: 0.75rem; padding: 2px 7px; background: #eff6ff; color: #2563eb; border-radius: 999px; margin-left: 4px; font-weight: 600;">
-              <?php echo htmlspecialchars($currentUser['role']); ?>
-            </span>
-          </span>
-          <a href="auth/logout.php" class="btn-sm-logout">Logout</a>
-        </div>
-      </header>
+      <!-- Reusable Top Bar Component -->
+      <?php include __DIR__ . '/includes/header.php'; ?>
 
       <!-- Page Body -->
       <div class="content-body">
