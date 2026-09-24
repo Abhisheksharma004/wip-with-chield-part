@@ -5,32 +5,29 @@ require_once __DIR__ . '/config/db.php';
 // Fetch real data from MSSQL database
 $pdo = getDBConnection();
 $rmItems = [];
-$vendors = [];
 $totalCount = 0;
 $activeCount = 0;
-$domesticCount = 0;
+$gradesSet = [];
 
 if ($pdo) {
     try {
-        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom, source, status FROM rm_master ORDER BY id DESC");
+        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom, status FROM rm_master ORDER BY id DESC");
         $rmItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $totalCount = count($rmItems);
         foreach ($rmItems as $it) {
             if (strcasecmp($it['status'] ?? '', 'active') === 0) {
                 $activeCount++;
             }
-            if (stripos($it['source'] ?? '', 'domestic') !== false) {
-                $domesticCount++;
+            $g = trim($it['grade_spec'] ?? '');
+            if (!empty($g) && $g !== '-' && !in_array(strtolower($g), $gradesSet)) {
+                $gradesSet[] = strtolower($g);
             }
         }
-
-        // Fetch registered active vendors for the Source dropdown
-        $vStmt = $pdo->query("SELECT id, vendor_code, vendor_name, address FROM vendor_master WHERE status = 'Active' ORDER BY vendor_name ASC");
-        $vendors = $vStmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         $dbError = $e->getMessage();
     }
 }
+$gradeCount = count($gradesSet);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -417,8 +414,8 @@ if ($pdo) {
           </div>
 
           <div class="simple-card stat-box">
-            <div class="stat-number in-progress" id="statDomesticRm"><?php echo $domesticCount; ?></div>
-            <div class="stat-title">Domestic Sourced</div>
+            <div class="stat-number in-progress" id="statGradesRm"><?php echo $gradeCount; ?></div>
+            <div class="stat-title">Material Grades</div>
           </div>
         </div>
 
@@ -443,7 +440,6 @@ if ($pdo) {
                   <th>Grade / Specification</th>
                   <th>Size / Dimension</th>
                   <th>UOM</th>
-                  <th>Vendor</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -460,7 +456,6 @@ if ($pdo) {
                       <td><?php echo htmlspecialchars($item['grade_spec'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['size_dimension'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['uom']); ?></td>
-                      <td><?php echo htmlspecialchars($item['source']); ?></td>
                       <td>
                         <?php if ($isActive): ?>
                           <span class="tag tag-completed">Active</span>
@@ -478,7 +473,7 @@ if ($pdo) {
                   <?php endforeach; ?>
                 <?php else: ?>
                   <tr id="emptyTableRow">
-                    <td colspan="8" class="empty-row-msg">No raw materials found in database. Click "+ Add RM" to create one.</td>
+                    <td colspan="7" class="empty-row-msg">No raw materials found in database. Click "+ Add RM" to create one.</td>
                   </tr>
                 <?php endif; ?>
               </tbody>
@@ -547,23 +542,14 @@ if ($pdo) {
               </select>
             </div>
 
-            <!-- 6. Vendor (Dropdown) -->
+            <!-- 6. Status -->
             <div class="rm-form-group">
-              <label for="inputSource">Vendor *</label>
-              <select id="inputSource" class="form-control" required>
-                <option value="">-- Select Vendor --</option>
-                <?php if (!empty($vendors)): ?>
-                  <?php foreach ($vendors as $vnd): ?>
-                    <option value="<?= htmlspecialchars($vnd['vendor_name']) ?>">
-                      <?= htmlspecialchars($vnd['vendor_name']) ?>
-                    </option>
-                  <?php endforeach; ?>
-                <?php endif; ?>
+              <label for="inputStatus">Status *</label>
+              <select id="inputStatus" class="form-control" required>
+                <option value="Active" selected>Active</option>
+                <option value="Inactive">Inactive</option>
               </select>
             </div>
-
-            <!-- Hidden Status field (Default: Active) -->
-            <input type="hidden" id="inputStatus" value="Active">
 
           </div>
         </div>
@@ -628,7 +614,7 @@ if ($pdo) {
 
       const statTotalRm = document.getElementById('statTotalRm');
       const statActiveRm = document.getElementById('statActiveRm');
-      const statDomesticRm = document.getElementById('statDomesticRm');
+      const statGradesRm = document.getElementById('statGradesRm');
 
       // ==========================================
       // Toast Notification (Identical to Login page)
@@ -672,28 +658,28 @@ if ($pdo) {
         const rows = Array.from(rmTableBody.querySelectorAll('tr')).filter(r => r.id !== 'emptyTableRow');
         let total = rows.length;
         let active = 0;
-        let domestic = 0;
+        let grades = new Set();
 
         rows.forEach(r => {
           const cells = r.querySelectorAll('td');
-          if (cells.length >= 7) {
-            const sourceText = cells[5].textContent.trim();
-            const statusText = cells[6].textContent.trim();
+          if (cells.length >= 6) {
+            const gradeText = cells[2].textContent.trim();
+            const statusText = cells[5].textContent.trim();
             if (statusText.toLowerCase().includes('active')) active++;
-            if (sourceText.toLowerCase().includes('domestic')) domestic++;
+            if (gradeText && gradeText !== '-') grades.add(gradeText.toLowerCase());
           }
         });
 
         if (statTotalRm) statTotalRm.textContent = total;
         if (statActiveRm) statActiveRm.textContent = active;
-        if (statDomesticRm) statDomesticRm.textContent = domestic;
+        if (statGradesRm) statGradesRm.textContent = grades.size;
 
         const emptyRow = document.getElementById('emptyTableRow');
         if (total === 0) {
           if (!emptyRow) {
             const tr = document.createElement('tr');
             tr.id = 'emptyTableRow';
-            tr.innerHTML = `<td colspan="8" class="empty-row-msg">No raw materials found in database. Click "+ Add RM" to create one.</td>`;
+            tr.innerHTML = `<td colspan="7" class="empty-row-msg">No raw materials found in database. Click "+ Add RM" to create one.</td>`;
             rmTableBody.appendChild(tr);
           }
         } else if (emptyRow) {
@@ -792,7 +778,6 @@ if ($pdo) {
           const grade = document.getElementById('inputGrade').value.trim() || '-';
           const size = document.getElementById('inputSize').value.trim() || '-';
           const uom = document.getElementById('inputUom').value;
-          const source = document.getElementById('inputSource').value.trim();
           const status = document.getElementById('inputStatus').value || 'Active';
 
           const action = id > 0 ? 'update' : 'create';
@@ -814,12 +799,17 @@ if ($pdo) {
                 grade_spec: grade,
                 size_dimension: size,
                 uom: uom,
-                source: source,
                 status: status
               })
             });
 
-            const result = await response.json();
+            let result;
+            try {
+              result = await response.json();
+            } catch (jsonErr) {
+              const rawText = await response.text().catch(() => '');
+              throw new Error(rawText ? `Server returned non-JSON: ${rawText.slice(0, 100)}` : 'Invalid response from server.');
+            }
 
             if (!response.ok || !result.success) {
               showToast(result.message || 'Error saving to database.', 'error');
@@ -848,9 +838,8 @@ if ($pdo) {
                 row.children[2].textContent = grade;
                 row.children[3].textContent = size;
                 row.children[4].textContent = uom;
-                row.children[5].textContent = source;
-                row.children[6].innerHTML = activeTag;
-                row.children[7].innerHTML = actionHtml;
+                row.children[5].innerHTML = activeTag;
+                row.children[6].innerHTML = actionHtml;
               }
               showToast(`Material "${code}" updated successfully.`, 'success');
             } else {
@@ -868,7 +857,6 @@ if ($pdo) {
                 <td>${grade}</td>
                 <td>${size}</td>
                 <td>${uom}</td>
-                <td>${source}</td>
                 <td>${activeTag}</td>
                 <td>${actionHtml}</td>
               `;
@@ -880,7 +868,7 @@ if ($pdo) {
             updateCounters();
 
           } catch (err) {
-            showToast('Network or server error while saving data.', 'error');
+            showToast(err.message || 'Network or server error while saving data.', 'error');
           } finally {
             saveRmSubmitBtn.disabled = false;
             saveRmSubmitBtn.textContent = originalBtnText;
@@ -904,34 +892,13 @@ if ($pdo) {
             const grade = cells[2].textContent.trim();
             const size = cells[3].textContent.trim();
             const uom = cells[4].textContent.trim();
-            const source = cells[5].textContent.trim();
-            const status = cells[6].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
+            const status = cells[5].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
 
             document.getElementById('inputRmCode').value = code;
             document.getElementById('inputRmName').value = name;
             document.getElementById('inputGrade').value = grade === '-' ? '' : grade;
             document.getElementById('inputSize').value = size === '-' ? '' : size;
             document.getElementById('inputUom').value = uom;
-
-            const sourceSelect = document.getElementById('inputSource');
-            if (source) {
-              let matchFound = false;
-              for (let opt of sourceSelect.options) {
-                if (opt.value.toLowerCase() === source.toLowerCase()) {
-                  sourceSelect.value = opt.value;
-                  matchFound = true;
-                  break;
-                }
-              }
-              if (!matchFound) {
-                const customOpt = new Option(source, source, true, true);
-                sourceSelect.add(customOpt);
-                sourceSelect.value = source;
-              }
-            } else {
-              sourceSelect.value = '';
-            }
-
             document.getElementById('inputStatus').value = status;
 
             editItemId.value = itemId;

@@ -9,6 +9,7 @@ $currentScript = $activeMenu ?? basename($_SERVER['PHP_SELF']);
 $isMasterActive = in_array($currentScript, [
     'vendor-master.php', 'vendor-master',
     'rm-master.php', 'rm-master',
+    'child-part-master.php', 'child-part-master',
     'child-master.php', 'child-master',
     'process-master.php', 'process-master',
     'part-master.php', 'part-master'
@@ -74,18 +75,18 @@ $isMasterActive = in_array($currentScript, [
           RM Master
         </a>
 
-        <!-- Sub 3. Child Master -->
-        <a href="#" class="submenu-item <?= ($currentScript === 'child-master.php' || $currentScript === 'child-master') ? 'active' : '' ?>" title="Child Master">
+        <!-- Sub 3. Child Part Master -->
+        <a href="child-part-master.php" class="submenu-item <?= ($currentScript === 'child-part-master.php' || $currentScript === 'child-part-master' || $currentScript === 'child-master.php') ? 'active' : '' ?>" title="Child Part Master">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
             <polyline points="2 17 12 22 22 17"></polyline>
             <polyline points="2 12 12 17 22 12"></polyline>
           </svg>
-          Child Master
+          Child Part Master
         </a>
 
         <!-- Sub 4. Process Master -->
-        <a href="#" class="submenu-item <?= ($currentScript === 'process-master.php' || $currentScript === 'process-master') ? 'active' : '' ?>" title="Process Master">
+        <a href="process-master.php" class="submenu-item <?= ($currentScript === 'process-master.php' || $currentScript === 'process-master') ? 'active' : '' ?>" title="Process Master">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -94,7 +95,7 @@ $isMasterActive = in_array($currentScript, [
         </a>
 
         <!-- Sub 5. Part Master -->
-        <a href="#" class="submenu-item <?= ($currentScript === 'part-master.php' || $currentScript === 'part-master') ? 'active' : '' ?>" title="Part Master">
+        <a href="part-master.php" class="submenu-item <?= ($currentScript === 'part-master.php' || $currentScript === 'part-master') ? 'active' : '' ?>" title="Part Master">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
           </svg>

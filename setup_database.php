@@ -110,9 +110,10 @@ try {
             grade_spec NVARCHAR(100) NULL,
             size_dimension NVARCHAR(100) NULL,
             uom NVARCHAR(20) NOT NULL,
-            source NVARCHAR(50) DEFAULT 'Domestic',
+            status NVARCHAR(50) DEFAULT 'Active',
             is_active BIT DEFAULT 1,
-            created_at DATETIME DEFAULT GETDATE()
+            created_at DATETIME DEFAULT GETDATE(),
+            updated_at DATETIME DEFAULT GETDATE()
         );
     END
     ";
