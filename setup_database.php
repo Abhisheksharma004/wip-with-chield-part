@@ -110,11 +110,19 @@ try {
             grade_spec NVARCHAR(100) NULL,
             size_dimension NVARCHAR(100) NULL,
             uom NVARCHAR(20) NOT NULL,
+            current_stock DECIMAL(18, 3) NOT NULL DEFAULT 0.000,
             status NVARCHAR(50) DEFAULT 'Active',
             is_active BIT DEFAULT 1,
             created_at DATETIME DEFAULT GETDATE(),
             updated_at DATETIME DEFAULT GETDATE()
         );
+    END
+    ELSE
+    BEGIN
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='rm_master' AND COLUMN_NAME='current_stock')
+        BEGIN
+            ALTER TABLE rm_master ADD current_stock DECIMAL(18, 3) NOT NULL DEFAULT 0.000;
+        END
     END
     ";
     $pdoApp->exec($createRmTableSql);
@@ -154,10 +162,18 @@ try {
             size_dimension NVARCHAR(100) NULL,
             nos_per_kg NVARCHAR(50) NULL,
             uom NVARCHAR(20) NOT NULL,
+            current_stock DECIMAL(18, 3) NOT NULL DEFAULT 0.000,
             status NVARCHAR(50) DEFAULT 'Active',
             created_at DATETIME DEFAULT GETDATE(),
             updated_at DATETIME DEFAULT GETDATE()
         );
+    END
+    ELSE
+    BEGIN
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='child_part_master' AND COLUMN_NAME='current_stock')
+        BEGIN
+            ALTER TABLE child_part_master ADD current_stock DECIMAL(18, 3) NOT NULL DEFAULT 0.000;
+        END
     END
     ";
     $pdoApp->exec($createChildPartTableSql);

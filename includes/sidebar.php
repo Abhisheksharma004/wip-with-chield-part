@@ -104,18 +104,6 @@ $isMasterActive = in_array($currentScript, [
       </div>
     </div>
 
-    <!-- 4. BOM
-    <a href="#" class="menu-item <?= ($currentScript === 'bom.php' || $currentScript === 'bom') ? 'active' : '' ?>" title="BOM">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-        <polyline points="14 2 14 8 20 8"></polyline>
-        <line x1="16" y1="13" x2="8" y2="13"></line>
-        <line x1="16" y1="17" x2="8" y2="17"></line>
-        <polyline points="10 9 9 9 8 9"></polyline>
-      </svg>
-      BOM
-    </a> -->
-
     <!-- 5. RM In -->
     <a href="rm-in.php" class="menu-item <?= ($currentScript === 'rm-in.php' || $currentScript === 'rm-in') ? 'active' : '' ?>" title="RM In">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -136,37 +124,39 @@ $isMasterActive = in_array($currentScript, [
       Child Part In
     </a>
 
-    <!-- 7. MIP -->
-    <a href="rm-consumption.php" class="menu-item <?= ($currentScript === 'rm-consumption.php' || $currentScript === 'rm-consumption') ? 'active' : '' ?>" title="RM Consumption">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="21 15 16 10 5 21"></polyline>
-    <polyline points="18 15 16 11 2 19"></polyline>
-  </svg>
+    <!-- 7. MIP (Material Issue for Production) -->
+    <a href="rm-consumption.php" class="menu-item <?= ($currentScript === 'rm-consumption.php' || $currentScript === 'rm-consumption') ? 'active' : '' ?>" title="Material Issue for Production (MIP)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
       MIP
     </a>
 
-    <!-- 3. DPR -->
-    <a href="#" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="DPR">
+    <!-- 8. Production -->
+    <a href="dpr.php" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr' || $currentScript === 'production.php') ? 'active' : '' ?>" title="Production">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10"></line>
-        <line x1="12" y1="20" x2="12" y2="4"></line>
-        <line x1="6" y1="20" x2="6" y2="14"></line>
+        <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4H2z"></path>
+        <line x1="17" y1="18" x2="17.01" y2="18"></line>
+        <line x1="12" y1="18" x2="12.01" y2="18"></line>
+        <line x1="7" y1="18" x2="7.01" y2="18"></line>
       </svg>
       Production
     </a>
 
-     <!-- 3. DPR -->
-    <a href="#" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="DPR">
+    <!-- 9. FG Store -->
+    <a href="fg-store.php" class="menu-item <?= ($currentScript === 'fg-store.php' || $currentScript === 'fg-store') ? 'active' : '' ?>" title="FG Store">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10"></line>
-        <line x1="12" y1="20" x2="12" y2="4"></line>
-        <line x1="6" y1="20" x2="6" y2="14"></line>
+        <polyline points="21 8 21 21 3 21 3 8"></polyline>
+        <rect x="1" y="3" width="22" height="5"></rect>
+        <line x1="10" y1="12" x2="14" y2="12"></line>
       </svg>
       FG Store
     </a>
 
-     <!-- 3. DPR -->
-    <a href="#" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="DPR">
+    <!-- 10. Reports -->
+    <a href="reports.php" class="menu-item <?= ($currentScript === 'reports.php' || $currentScript === 'reports') ? 'active' : '' ?>" title="Reports">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="18" y1="20" x2="18" y2="10"></line>
         <line x1="12" y1="20" x2="12" y2="4"></line>

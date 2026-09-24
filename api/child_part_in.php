@@ -119,24 +119,58 @@ if ($method === 'POST') {
         }
 
         try {
-            if (!empty($inwardNo)) {
-                $stmt = $pdo->prepare("DELETE FROM child_part_inward WHERE inward_no = ?");
-                $stmt->execute([$inwardNo]);
-            } else {
+            // Find inward_no if only id was passed
+            if (empty($inwardNo) && $id > 0) {
                 $findStmt = $pdo->prepare("SELECT inward_no FROM child_part_inward WHERE id = ?");
                 $findStmt->execute([$id]);
                 $found = $findStmt->fetch();
                 if ($found && !empty($found['inward_no'])) {
-                    $stmt = $pdo->prepare("DELETE FROM child_part_inward WHERE inward_no = ?");
-                    $stmt->execute([$found['inward_no']]);
-                } else {
-                    $stmt = $pdo->prepare("DELETE FROM child_part_inward WHERE id = ?");
-                    $stmt->execute([$id]);
+                    $inwardNo = $found['inward_no'];
                 }
             }
 
+            $itemsToRevert = [];
+            if (!empty($inwardNo)) {
+                $itemsStmt = $pdo->prepare("SELECT part_code, received_qty FROM child_part_inward WHERE inward_no = ?");
+                $itemsStmt->execute([$inwardNo]);
+                $itemsToRevert = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+            } else if ($id > 0) {
+                $itemsStmt = $pdo->prepare("SELECT part_code, received_qty FROM child_part_inward WHERE id = ?");
+                $itemsStmt->execute([$id]);
+                $itemsToRevert = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            $pdo->beginTransaction();
+
+            // Revert stock from child_part_master
+            $revertStockStmt = $pdo->prepare("
+                UPDATE child_part_master 
+                SET current_stock = CASE WHEN COALESCE(current_stock, 0) >= ? THEN current_stock - ? ELSE 0 END,
+                    updated_at = GETDATE()
+                WHERE part_code = ?
+            ");
+            foreach ($itemsToRevert as $revIt) {
+                $revQty = floatval($revIt['received_qty'] ?? 0);
+                if ($revQty > 0 && !empty($revIt['part_code'])) {
+                    $revertStockStmt->execute([$revQty, $revQty, $revIt['part_code']]);
+                }
+            }
+
+            if (!empty($inwardNo)) {
+                $stmt = $pdo->prepare("DELETE FROM child_part_inward WHERE inward_no = ?");
+                $stmt->execute([$inwardNo]);
+            } else {
+                $stmt = $pdo->prepare("DELETE FROM child_part_inward WHERE id = ?");
+                $stmt->execute([$id]);
+            }
+
+            $pdo->commit();
+
             echo json_encode(['success' => true, 'message' => 'Child Part Inward entry deleted successfully.']);
         } catch (PDOException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Delete failed: ' . $e->getMessage()]);
         }
@@ -260,15 +294,46 @@ if ($method === 'POST') {
 
             $pdo->beginTransaction();
 
+            // 1. Fetch old items for this inward_no to revert their stock in child_part_master
+            $oldItemsStmt = $pdo->prepare("SELECT part_code, received_qty FROM child_part_inward WHERE inward_no = ?");
+            $oldItemsStmt->execute([$inwardNo]);
+            $oldItems = $oldItemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 2. Revert old stock
+            $revertStockStmt = $pdo->prepare("
+                UPDATE child_part_master 
+                SET current_stock = CASE WHEN COALESCE(current_stock, 0) >= ? THEN current_stock - ? ELSE 0 END,
+                    updated_at = GETDATE()
+                WHERE part_code = ?
+            ");
+            foreach ($oldItems as $oldIt) {
+                $oldQty = floatval($oldIt['received_qty'] ?? 0);
+                if ($oldQty > 0 && !empty($oldIt['part_code'])) {
+                    $revertStockStmt->execute([$oldQty, $oldQty, $oldIt['part_code']]);
+                }
+            }
+
+            // 3. Delete existing records for this inward_no
             $delStmt = $pdo->prepare("DELETE FROM child_part_inward WHERE inward_no = ?");
             $delStmt->execute([$inwardNo]);
 
+            // 4. Insert updated records into child_part_inward
             $insertStmt = $pdo->prepare("
                 INSERT INTO child_part_inward (
                     inward_no, inward_date, vendor_name, invoice_no, invoice_date,
                     part_code, part_name, received_qty, uom,
                     created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+            ");
+            $updStockStmt = $pdo->prepare("
+                UPDATE child_part_master 
+                SET current_stock = COALESCE(current_stock, 0) + ?,
+                    updated_at = GETDATE()
+                WHERE part_code = ?
+            ");
+            $insPartStmt = $pdo->prepare("
+                INSERT INTO child_part_master (part_code, part_name, uom, current_stock, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'Active', GETDATE(), GETDATE())
             ");
 
             $firstInsertedId = null;
@@ -287,6 +352,12 @@ if ($method === 'POST') {
 
                 if ($firstInsertedId === null) {
                     $firstInsertedId = $pdo->lastInsertId();
+                }
+
+                // Add received_qty to child_part_master.current_stock
+                $updStockStmt->execute([$it['received_qty'], $it['part_code']]);
+                if ($updStockStmt->rowCount() === 0) {
+                    $insPartStmt->execute([$it['part_code'], $it['part_name'], $it['uom'], $it['received_qty']]);
                 }
             }
 
@@ -359,6 +430,16 @@ if ($method === 'POST') {
                 created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
         ");
+        $updStockStmt = $pdo->prepare("
+            UPDATE child_part_master 
+            SET current_stock = COALESCE(current_stock, 0) + ?,
+                updated_at = GETDATE()
+            WHERE part_code = ?
+        ");
+        $insPartStmt = $pdo->prepare("
+            INSERT INTO child_part_master (part_code, part_name, uom, current_stock, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'Active', GETDATE(), GETDATE())
+        ");
 
         $firstInsertedId = null;
         foreach ($itemsList as $it) {
@@ -376,6 +457,12 @@ if ($method === 'POST') {
 
             if ($firstInsertedId === null) {
                 $firstInsertedId = $pdo->lastInsertId();
+            }
+
+            // Add received_qty to child_part_master.current_stock
+            $updStockStmt->execute([$it['received_qty'], $it['part_code']]);
+            if ($updStockStmt->rowCount() === 0) {
+                $insPartStmt->execute([$it['part_code'], $it['part_name'], $it['uom'], $it['received_qty']]);
             }
         }
 

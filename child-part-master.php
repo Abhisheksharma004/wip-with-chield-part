@@ -14,7 +14,7 @@ $gradesSet = [];
 
 if ($pdo) {
     try {
-        $stmt = $pdo->query("SELECT id, part_code, part_name, grade_spec, size_dimension, nos_per_kg, uom, status FROM child_part_master ORDER BY id DESC");
+        $stmt = $pdo->query("SELECT id, part_code, part_name, grade_spec, size_dimension, nos_per_kg, uom, current_stock, status FROM child_part_master ORDER BY id DESC");
         $childParts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $totalCount = count($childParts);
         foreach ($childParts as $cp) {
@@ -430,6 +430,7 @@ $pageTitle = 'Child Part Master';
                   <th>Size / Dimension</th>
                   <th>Nos Per K.g</th>
                   <th>UOM</th>
+                  <th>Current Stock</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -440,8 +441,11 @@ $pageTitle = 'Child Part Master';
                   <?php foreach ($childParts as $item): ?>
                     <?php 
                       $isActive = (strcasecmp($item['status'] ?? 'Active', 'Active') === 0);
+                      $stockVal = floatval($item['current_stock'] ?? 0);
+                      $dispStock = ($stockVal == (int)$stockVal) ? number_format($stockVal, 0) : rtrim(rtrim(number_format($stockVal, 3), '0'), '.');
+                      $dataStockVal = ($stockVal == (int)$stockVal) ? (string)(int)$stockVal : rtrim(rtrim(number_format($stockVal, 3, '.', ''), '0'), '.');
                     ?>
-                    <tr data-id="<?php echo htmlspecialchars($item['id']); ?>">
+                    <tr data-id="<?php echo htmlspecialchars($item['id']); ?>" data-stock="<?php echo htmlspecialchars($dataStockVal); ?>">
                       <td style="color: var(--text-sub); font-weight: 600;"><?php echo $sr++; ?></td>
                       <td><strong><?php echo htmlspecialchars($item['part_code']); ?></strong></td>
                       <td><?php echo htmlspecialchars($item['part_name']); ?></td>
@@ -449,6 +453,11 @@ $pageTitle = 'Child Part Master';
                       <td><?php echo htmlspecialchars($item['size_dimension'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['nos_per_kg'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['uom']); ?></td>
+                      <td>
+                        <span class="stock-badge" style="display:inline-block; font-weight:700; color:#0f172a; background:#f1f5f9; padding:3px 9px; border-radius:5px; border:1px solid #e2e8f0; font-variant-numeric:tabular-nums;">
+                          <?php echo htmlspecialchars($dispStock); ?>
+                        </span>
+                      </td>
                       <td>
                         <?php if ($isActive): ?>
                           <span class="tag tag-completed">Active</span>
@@ -466,7 +475,7 @@ $pageTitle = 'Child Part Master';
                   <?php endforeach; ?>
                 <?php else: ?>
                   <tr id="emptyTableRow">
-                    <td colspan="9" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>
+                    <td colspan="10" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>
                   </tr>
                 <?php endif; ?>
               </tbody>
@@ -542,7 +551,13 @@ $pageTitle = 'Child Part Master';
               </select>
             </div>
 
-            <!-- 7. Status -->
+            <!-- 7. Current Stock -->
+            <div class="cp-form-group">
+              <label for="inputCurrentStock">Current Stock</label>
+              <input type="number" step="any" min="0" id="inputCurrentStock" class="form-control" placeholder="0" value="0">
+            </div>
+
+            <!-- 8. Status -->
             <div class="cp-form-group">
               <label for="inputStatus">Status *</label>
               <select id="inputStatus" class="form-control" required>
@@ -669,9 +684,9 @@ $pageTitle = 'Child Part Master';
 
         rows.forEach(r => {
           const cells = r.querySelectorAll('td');
-          if (cells.length >= 8) {
+          if (cells.length >= 9) {
             const gradeText = cells[3].textContent.trim();
-            const statusText = cells[7].textContent.trim();
+            const statusText = cells[8].textContent.trim();
             if (statusText.toLowerCase().includes('active')) active++;
             if (gradeText && gradeText !== '-') grades.add(gradeText.toLowerCase());
           }
@@ -686,7 +701,7 @@ $pageTitle = 'Child Part Master';
           if (!emptyRow) {
             const tr = document.createElement('tr');
             tr.id = 'emptyTableRow';
-            tr.innerHTML = `<td colspan="9" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>`;
+            tr.innerHTML = `<td colspan="10" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>`;
             cpTableBody.appendChild(tr);
           }
         } else if (emptyRow) {
@@ -705,6 +720,16 @@ $pageTitle = 'Child Part Master';
         }, 100);
       }
 
+      // Helper to format stock (only show decimal if fractional)
+      function formatStock(val) {
+        const num = parseFloat(val || 0);
+        if (isNaN(num)) return '0';
+        if (num % 1 === 0) {
+          return num.toLocaleString('en-US');
+        }
+        return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+      }
+
       // Close Form Modal
       function closeModal() {
         cpPopupModal.classList.remove('active');
@@ -712,6 +737,7 @@ $pageTitle = 'Child Part Master';
         cpPopupForm.reset();
         editItemId.value = '';
         document.getElementById('inputStatus').value = 'Active';
+        document.getElementById('inputCurrentStock').value = '0';
       }
 
       // Open Add Modal
@@ -720,6 +746,7 @@ $pageTitle = 'Child Part Master';
           cpPopupForm.reset();
           editItemId.value = '';
           document.getElementById('inputStatus').value = 'Active';
+          document.getElementById('inputCurrentStock').value = '0';
           openModal('+ Add Child Part', '+ Save Child Part');
         });
       }
@@ -786,6 +813,7 @@ $pageTitle = 'Child Part Master';
           const size = document.getElementById('inputSize').value.trim() || '-';
           const nosPerKg = document.getElementById('inputNosPerKg').value.trim() || '-';
           const uom = document.getElementById('inputUom').value;
+          const currentStock = parseFloat(document.getElementById('inputCurrentStock').value || 0);
           const status = document.getElementById('inputStatus').value || 'Active';
 
           const action = id > 0 ? 'update' : 'create';
@@ -807,6 +835,7 @@ $pageTitle = 'Child Part Master';
                 size_dimension: size,
                 nos_per_kg: nosPerKg,
                 uom: uom,
+                current_stock: currentStock,
                 status: status
               })
             });
@@ -830,6 +859,15 @@ $pageTitle = 'Child Part Master';
               ? '<span class="tag tag-completed">Active</span>' 
               : '<span class="tag" style="background:#f1f5f9; color:#64748b;">Inactive</span>';
 
+            const stockFormatted = formatStock(currentStock);
+            const stockRawStr = (currentStock % 1 === 0) ? currentStock.toString() : parseFloat(currentStock.toFixed(3)).toString();
+
+            const stockHtml = `
+              <span class="stock-badge" style="display:inline-block; font-weight:700; color:#0f172a; background:#f1f5f9; padding:3px 9px; border-radius:5px; border:1px solid #e2e8f0; font-variant-numeric:tabular-nums;">
+                ${stockFormatted}
+              </span>
+            `;
+
             const actionHtml = `
               <div style="display: flex; gap: 6px;">
                 <button type="button" class="btn-edit" title="Edit Item">Edit</button>
@@ -841,14 +879,16 @@ $pageTitle = 'Child Part Master';
               // Update existing row
               const row = cpTableBody.querySelector(`tr[data-id="${id}"]`);
               if (row) {
+                row.setAttribute('data-stock', stockRawStr);
                 row.children[1].innerHTML = `<strong>${code}</strong>`;
                 row.children[2].textContent = name;
                 row.children[3].textContent = grade;
                 row.children[4].textContent = size;
                 row.children[5].textContent = nosPerKg;
                 row.children[6].textContent = uom;
-                row.children[7].innerHTML = activeTag;
-                row.children[8].innerHTML = actionHtml;
+                row.children[7].innerHTML = stockHtml;
+                row.children[8].innerHTML = activeTag;
+                row.children[9].innerHTML = actionHtml;
               }
               showToast(`Child Part "${code}" updated successfully.`, 'success');
             } else {
@@ -859,6 +899,7 @@ $pageTitle = 'Child Part Master';
               const newId = result.data?.id || Date.now();
               const tr = document.createElement('tr');
               tr.setAttribute('data-id', newId);
+              tr.setAttribute('data-stock', stockRawStr);
               tr.innerHTML = `
                 <td style="color: var(--text-sub); font-weight: 600;">1</td>
                 <td><strong>${code}</strong></td>
@@ -867,6 +908,7 @@ $pageTitle = 'Child Part Master';
                 <td>${size}</td>
                 <td>${nosPerKg}</td>
                 <td>${uom}</td>
+                <td>${stockHtml}</td>
                 <td>${activeTag}</td>
                 <td>${actionHtml}</td>
               `;
@@ -904,7 +946,9 @@ $pageTitle = 'Child Part Master';
             const size = cells[4].textContent.trim();
             const nosPerKg = cells[5].textContent.trim();
             const uom = cells[6].textContent.trim();
-            const status = cells[7].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
+            const rawStock = row.getAttribute('data-stock') || cells[7].textContent.trim().replace(/,/g, '');
+            const numStock = parseFloat(rawStock || 0);
+            const status = cells[8].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
 
             document.getElementById('inputPartCode').value = code;
             document.getElementById('inputPartName').value = name;
@@ -912,6 +956,7 @@ $pageTitle = 'Child Part Master';
             document.getElementById('inputSize').value = size === '-' ? '' : size;
             document.getElementById('inputNosPerKg').value = nosPerKg === '-' ? '' : nosPerKg;
             document.getElementById('inputUom').value = uom;
+            document.getElementById('inputCurrentStock').value = (numStock % 1 === 0) ? numStock.toString() : parseFloat(numStock.toFixed(3)).toString();
             document.getElementById('inputStatus').value = status;
 
             editItemId.value = itemId;

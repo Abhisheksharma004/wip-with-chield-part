@@ -30,7 +30,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 // Handle GET request - Fetch all RM records
 if ($method === 'GET') {
     try {
-        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom, status, created_at FROM rm_master ORDER BY id DESC");
+        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom, current_stock, status, created_at FROM rm_master ORDER BY id DESC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
@@ -90,6 +90,7 @@ if ($method === 'POST') {
     $gradeSpec = trim($data['grade_spec'] ?? '');
     $sizeDimension = trim($data['size_dimension'] ?? '');
     $uom = trim($data['uom'] ?? 'KG');
+    $currentStock = isset($data['current_stock']) ? floatval($data['current_stock']) : 0.0;
     $status = trim($data['status'] ?? 'Active');
 
     // Default status if empty
@@ -126,12 +127,25 @@ if ($method === 'POST') {
 
             $updateStmt = $pdo->prepare("
                 UPDATE rm_master 
-                SET rm_code = ?, rm_name = ?, grade_spec = ?, size_dimension = ?, uom = ?, status = ?, updated_at = GETDATE()
+                SET rm_code = ?, rm_name = ?, grade_spec = ?, size_dimension = ?, uom = ?, current_stock = ?, status = ?, updated_at = GETDATE()
                 WHERE id = ?
             ");
-            $updateStmt->execute([$rmCode, $rmName, $gradeSpec, $sizeDimension, $uom, $status, $id]);
+            $updateStmt->execute([$rmCode, $rmName, $gradeSpec, $sizeDimension, $uom, $currentStock, $status, $id]);
 
-            echo json_encode(['success' => true, 'message' => "Material '{$rmCode}' updated successfully."]);
+            echo json_encode([
+                'success' => true, 
+                'message' => "Material '{$rmCode}' updated successfully.",
+                'data' => [
+                    'id' => $id,
+                    'rm_code' => $rmCode,
+                    'rm_name' => $rmName,
+                    'grade_spec' => $gradeSpec,
+                    'size_dimension' => $sizeDimension,
+                    'uom' => $uom,
+                    'current_stock' => $currentStock,
+                    'status' => $status
+                ]
+            ]);
         } catch (PDOException $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Update failed: ' . $e->getMessage()]);
@@ -152,10 +166,10 @@ if ($method === 'POST') {
         }
 
         $insertStmt = $pdo->prepare("
-            INSERT INTO rm_master (rm_code, rm_name, grade_spec, size_dimension, uom, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+            INSERT INTO rm_master (rm_code, rm_name, grade_spec, size_dimension, uom, current_stock, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
         ");
-        $insertStmt->execute([$rmCode, $rmName, $gradeSpec, $sizeDimension, $uom, $status]);
+        $insertStmt->execute([$rmCode, $rmName, $gradeSpec, $sizeDimension, $uom, $currentStock, $status]);
 
         $newId = $pdo->lastInsertId();
 
@@ -169,6 +183,7 @@ if ($method === 'POST') {
                 'grade_spec' => $gradeSpec,
                 'size_dimension' => $sizeDimension,
                 'uom' => $uom,
+                'current_stock' => $currentStock,
                 'status' => $status
             ]
         ]);

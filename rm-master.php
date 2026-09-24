@@ -11,7 +11,7 @@ $gradesSet = [];
 
 if ($pdo) {
     try {
-        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom, status FROM rm_master ORDER BY id DESC");
+        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom, current_stock, status FROM rm_master ORDER BY id DESC");
         $rmItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $totalCount = count($rmItems);
         foreach ($rmItems as $it) {
@@ -440,6 +440,7 @@ $gradeCount = count($gradesSet);
                   <th>Grade / Specification</th>
                   <th>Size / Dimension</th>
                   <th>UOM</th>
+                  <th>Current Stock</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -449,13 +450,21 @@ $gradeCount = count($gradesSet);
                   <?php foreach ($rmItems as $item): ?>
                     <?php 
                       $isActive = (strcasecmp($item['status'] ?? 'Active', 'Active') === 0);
+                      $stockVal = floatval($item['current_stock'] ?? 0);
+                      $dispStock = ($stockVal == (int)$stockVal) ? number_format($stockVal, 0) : rtrim(rtrim(number_format($stockVal, 3), '0'), '.');
+                      $dataStockVal = ($stockVal == (int)$stockVal) ? (string)(int)$stockVal : rtrim(rtrim(number_format($stockVal, 3, '.', ''), '0'), '.');
                     ?>
-                    <tr data-id="<?php echo htmlspecialchars($item['id']); ?>">
+                    <tr data-id="<?php echo htmlspecialchars($item['id']); ?>" data-stock="<?php echo htmlspecialchars($dataStockVal); ?>">
                       <td><strong><?php echo htmlspecialchars($item['rm_code']); ?></strong></td>
                       <td><?php echo htmlspecialchars($item['rm_name']); ?></td>
                       <td><?php echo htmlspecialchars($item['grade_spec'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['size_dimension'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['uom']); ?></td>
+                      <td>
+                        <span class="stock-badge" style="display:inline-block; font-weight:700; color:#0f172a; background:#f1f5f9; padding:3px 9px; border-radius:5px; border:1px solid #e2e8f0; font-variant-numeric:tabular-nums;">
+                          <?php echo htmlspecialchars($dispStock); ?>
+                        </span>
+                      </td>
                       <td>
                         <?php if ($isActive): ?>
                           <span class="tag tag-completed">Active</span>
@@ -473,7 +482,7 @@ $gradeCount = count($gradesSet);
                   <?php endforeach; ?>
                 <?php else: ?>
                   <tr id="emptyTableRow">
-                    <td colspan="7" class="empty-row-msg">No raw materials found in database. Click "+ Add RM" to create one.</td>
+                    <td colspan="8" class="empty-row-msg">No raw materials found in database. Click "+ Add RM" to create one.</td>
                   </tr>
                 <?php endif; ?>
               </tbody>
@@ -544,7 +553,13 @@ $gradeCount = count($gradesSet);
               </select>
             </div>
 
-            <!-- 6. Status -->
+            <!-- 6. Current Stock -->
+            <div class="rm-form-group">
+              <label for="inputCurrentStock">Current Stock</label>
+              <input type="number" step="any" min="0" id="inputCurrentStock" class="form-control" placeholder="0" value="0">
+            </div>
+
+            <!-- 7. Status -->
             <div class="rm-form-group">
               <label for="inputStatus">Status *</label>
               <select id="inputStatus" class="form-control" required>
@@ -664,9 +679,9 @@ $gradeCount = count($gradesSet);
 
         rows.forEach(r => {
           const cells = r.querySelectorAll('td');
-          if (cells.length >= 6) {
+          if (cells.length >= 7) {
             const gradeText = cells[2].textContent.trim();
-            const statusText = cells[5].textContent.trim();
+            const statusText = cells[6].textContent.trim();
             if (statusText.toLowerCase().includes('active')) active++;
             if (gradeText && gradeText !== '-') grades.add(gradeText.toLowerCase());
           }
@@ -681,7 +696,7 @@ $gradeCount = count($gradesSet);
           if (!emptyRow) {
             const tr = document.createElement('tr');
             tr.id = 'emptyTableRow';
-            tr.innerHTML = `<td colspan="7" class="empty-row-msg">No raw materials found in database. Click "+ Add RM" to create one.</td>`;
+            tr.innerHTML = `<td colspan="8" class="empty-row-msg">No raw materials found in database. Click "+ Add RM" to create one.</td>`;
             rmTableBody.appendChild(tr);
           }
         } else if (emptyRow) {
@@ -700,6 +715,16 @@ $gradeCount = count($gradesSet);
         }, 100);
       }
 
+      // Helper to format stock (only show decimal if fractional)
+      function formatStock(val) {
+        const num = parseFloat(val || 0);
+        if (isNaN(num)) return '0';
+        if (num % 1 === 0) {
+          return num.toLocaleString('en-US');
+        }
+        return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+      }
+
       // Close Form Modal
       function closeModal() {
         rmPopupModal.classList.remove('active');
@@ -707,6 +732,7 @@ $gradeCount = count($gradesSet);
         rmPopupForm.reset();
         editItemId.value = '';
         document.getElementById('inputStatus').value = 'Active';
+        document.getElementById('inputCurrentStock').value = '0';
       }
 
       // Open Add Modal
@@ -715,6 +741,7 @@ $gradeCount = count($gradesSet);
           rmPopupForm.reset();
           editItemId.value = '';
           document.getElementById('inputStatus').value = 'Active';
+          document.getElementById('inputCurrentStock').value = '0';
           openModal('+ Add Raw Material (RM)', '+ Save Material');
         });
       }
@@ -780,6 +807,7 @@ $gradeCount = count($gradesSet);
           const grade = document.getElementById('inputGrade').value.trim() || '-';
           const size = document.getElementById('inputSize').value.trim() || '-';
           const uom = document.getElementById('inputUom').value;
+          const currentStock = parseFloat(document.getElementById('inputCurrentStock').value || 0);
           const status = document.getElementById('inputStatus').value || 'Active';
 
           const action = id > 0 ? 'update' : 'create';
@@ -801,6 +829,7 @@ $gradeCount = count($gradesSet);
                 grade_spec: grade,
                 size_dimension: size,
                 uom: uom,
+                current_stock: currentStock,
                 status: status
               })
             });
@@ -824,6 +853,15 @@ $gradeCount = count($gradesSet);
               ? '<span class="tag tag-completed">Active</span>' 
               : '<span class="tag" style="background:#f1f5f9; color:#64748b;">Inactive</span>';
 
+            const stockFormatted = formatStock(currentStock);
+            const stockRawStr = (currentStock % 1 === 0) ? currentStock.toString() : parseFloat(currentStock.toFixed(3)).toString();
+
+            const stockHtml = `
+              <span class="stock-badge" style="display:inline-block; font-weight:700; color:#0f172a; background:#f1f5f9; padding:3px 9px; border-radius:5px; border:1px solid #e2e8f0; font-variant-numeric:tabular-nums;">
+                ${stockFormatted}
+              </span>
+            `;
+
             const actionHtml = `
               <div style="display: flex; gap: 6px;">
                 <button type="button" class="btn-edit" title="Edit Item">Edit</button>
@@ -835,13 +873,15 @@ $gradeCount = count($gradesSet);
               // Update row in table
               const row = rmTableBody.querySelector(`tr[data-id="${id}"]`);
               if (row) {
+                row.setAttribute('data-stock', stockRawStr);
                 row.children[0].innerHTML = `<strong>${code}</strong>`;
                 row.children[1].textContent = name;
                 row.children[2].textContent = grade;
                 row.children[3].textContent = size;
                 row.children[4].textContent = uom;
-                row.children[5].innerHTML = activeTag;
-                row.children[6].innerHTML = actionHtml;
+                row.children[5].innerHTML = stockHtml;
+                row.children[6].innerHTML = activeTag;
+                row.children[7].innerHTML = actionHtml;
               }
               showToast(`Material "${code}" updated successfully.`, 'success');
             } else {
@@ -853,12 +893,14 @@ $gradeCount = count($gradesSet);
               const newId = result.data?.id || Date.now();
               const tr = document.createElement('tr');
               tr.setAttribute('data-id', newId);
+              tr.setAttribute('data-stock', stockRawStr);
               tr.innerHTML = `
                 <td><strong>${code}</strong></td>
                 <td>${name}</td>
                 <td>${grade}</td>
                 <td>${size}</td>
                 <td>${uom}</td>
+                <td>${stockHtml}</td>
                 <td>${activeTag}</td>
                 <td>${actionHtml}</td>
               `;
@@ -894,13 +936,16 @@ $gradeCount = count($gradesSet);
             const grade = cells[2].textContent.trim();
             const size = cells[3].textContent.trim();
             const uom = cells[4].textContent.trim();
-            const status = cells[5].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
+            const rawStock = row.getAttribute('data-stock') || cells[5].textContent.trim().replace(/,/g, '');
+            const numStock = parseFloat(rawStock || 0);
+            const status = cells[6].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
 
             document.getElementById('inputRmCode').value = code;
             document.getElementById('inputRmName').value = name;
             document.getElementById('inputGrade').value = grade === '-' ? '' : grade;
             document.getElementById('inputSize').value = size === '-' ? '' : size;
             document.getElementById('inputUom').value = uom;
+            document.getElementById('inputCurrentStock').value = (numStock % 1 === 0) ? numStock.toString() : parseFloat(numStock.toFixed(3)).toString();
             document.getElementById('inputStatus').value = status;
 
             editItemId.value = itemId;
