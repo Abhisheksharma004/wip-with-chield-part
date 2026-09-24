@@ -1,109 +1,36 @@
 <?php
 /**
- * WIP Management Portal - Child Part Master (UI Only)
+ * WIP Management Portal - Child Part Master
  */
 require_once __DIR__ . '/auth/check_auth.php';
 require_once __DIR__ . '/config/db.php';
 
-// Fetch registered RMs and Vendors from database if available (for dropdown helpers)
+// Fetch real data from MSSQL database
 $pdo = getDBConnection();
-$rmList = [];
-$vendorList = [];
+$childParts = [];
+$totalCount = 0;
+$activeCount = 0;
+$gradesSet = [];
 
 if ($pdo) {
     try {
-        $rmStmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom FROM rm_master WHERE status = 'Active' ORDER BY rm_name ASC");
-        $rmList = $rmStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $vStmt = $pdo->query("SELECT id, vendor_name FROM vendor_master WHERE status = 'Active' ORDER BY vendor_name ASC");
-        $vendorList = $vStmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $pdo->query("SELECT id, part_code, part_name, grade_spec, size_dimension, nos_per_kg, uom, status FROM child_part_master ORDER BY id DESC");
+        $childParts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $totalCount = count($childParts);
+        foreach ($childParts as $cp) {
+            if (strcasecmp($cp['status'] ?? '', 'active') === 0) {
+                $activeCount++;
+            }
+            $g = trim($cp['grade_spec'] ?? '');
+            if (!empty($g) && $g !== '-' && !in_array(strtolower($g), $gradesSet)) {
+                $gradesSet[] = strtolower($g);
+            }
+        }
     } catch (PDOException $e) {
-        // Fallback gracefully
+        $dbError = $e->getMessage();
     }
 }
-
-// Initial Mock / Seed data matching requested columns:
-// Sr No., Child Part Code, Child Part Name, RM Name, Grade / Specification, Size / Dimension, Nos Per K.g, Req. Qty, UOM, Source, Active
-$childParts = [
-    [
-        'id' => 1,
-        'part_code' => 'CP-1001',
-        'part_name' => 'Base Mounting Bracket',
-        'rm_name' => 'CRCA Sheet 1.2mm',
-        'grade_spec' => 'IS 513 CR2',
-        'size_dimension' => '120 x 85 mm',
-        'nos_per_kg' => '14.50',
-        'req_qty' => '2',
-        'uom' => 'NOS',
-        'source' => 'In-house',
-        'status' => 'Active'
-    ],
-    [
-        'id' => 2,
-        'part_code' => 'CP-1002',
-        'part_name' => 'Hinge Flange Plate',
-        'rm_name' => 'HR Steel Plate 2.5mm',
-        'grade_spec' => 'IS 2062 E250',
-        'size_dimension' => '200 x 150 mm',
-        'nos_per_kg' => '8.20',
-        'req_qty' => '4',
-        'uom' => 'NOS',
-        'source' => 'Domestic',
-        'status' => 'Active'
-    ],
-    [
-        'id' => 3,
-        'part_code' => 'CP-1003',
-        'part_name' => 'Side Reinforcement Channel',
-        'rm_name' => 'Aluminium Extrusion',
-        'grade_spec' => '6063 T6',
-        'size_dimension' => '50 x 25 x 3mm',
-        'nos_per_kg' => '5.00',
-        'req_qty' => '1',
-        'uom' => 'NOS',
-        'source' => 'Tata Steel Ltd.',
-        'status' => 'Active'
-    ],
-    [
-        'id' => 4,
-        'part_code' => 'CP-1004',
-        'part_name' => 'Shaft Spacer Bush',
-        'rm_name' => 'Bright Bar Round',
-        'grade_spec' => 'EN1A / 11SMn30',
-        'size_dimension' => 'Dia 20mm x 15mm',
-        'nos_per_kg' => '22.00',
-        'req_qty' => '6',
-        'uom' => 'NOS',
-        'source' => 'Apex Fasteners',
-        'status' => 'Active'
-    ],
-    [
-        'id' => 5,
-        'part_code' => 'CP-1005',
-        'part_name' => 'Terminal Connection Lug',
-        'rm_name' => 'Copper Strip',
-        'grade_spec' => 'EC Grade Copper',
-        'size_dimension' => '15 x 3mm x 45mm',
-        'nos_per_kg' => '45.00',
-        'req_qty' => '8',
-        'uom' => 'NOS',
-        'source' => 'Imported',
-        'status' => 'Inactive'
-    ]
-];
-
-$totalCount = count($childParts);
-$activeCount = 0;
-$inHouseCount = 0;
-
-foreach ($childParts as $cp) {
-    if (strcasecmp($cp['status'], 'Active') === 0) {
-        $activeCount++;
-    }
-    if (stripos($cp['source'], 'in-house') !== false) {
-        $inHouseCount++;
-    }
-}
+$gradeCount = count($gradesSet);
 
 $pageTitle = 'Child Part Master';
 ?>
@@ -475,8 +402,8 @@ $pageTitle = 'Child Part Master';
           </div>
 
           <div class="simple-card stat-box">
-            <div class="stat-number in-progress" id="statInHouseCp"><?php echo $inHouseCount; ?></div>
-            <div class="stat-title">In-House Produced</div>
+            <div class="stat-number in-progress" id="statGradesCp"><?php echo $gradeCount; ?></div>
+            <div class="stat-title">Material Grades</div>
           </div>
         </div>
 
@@ -487,7 +414,7 @@ $pageTitle = 'Child Part Master';
           <div class="table-bar">
             <h2 class="box-title">Child Part Directory</h2>
             <div class="table-actions">
-              <input type="text" id="cpSearch" class="simple-input" placeholder="Search Code, Name, RM, Grade, Size...">
+              <input type="text" id="cpSearch" class="simple-input" placeholder="Search Code, Name, Grade, Size...">
               <button type="button" class="btn-primary" id="openAddCpModalBtn">+ Add Child Part</button>
             </div>
           </div>
@@ -499,13 +426,10 @@ $pageTitle = 'Child Part Master';
                   <th style="width: 50px;">Sr No.</th>
                   <th>Child Part Code</th>
                   <th>Child Part Name</th>
-                  <th>RM Name</th>
                   <th>Grade / Specification</th>
                   <th>Size / Dimension</th>
                   <th>Nos Per K.g</th>
-                  <th>Req. Qty</th>
                   <th>UOM</th>
-                  <th>Source</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -521,13 +445,10 @@ $pageTitle = 'Child Part Master';
                       <td style="color: var(--text-sub); font-weight: 600;"><?php echo $sr++; ?></td>
                       <td><strong><?php echo htmlspecialchars($item['part_code']); ?></strong></td>
                       <td><?php echo htmlspecialchars($item['part_name']); ?></td>
-                      <td><?php echo htmlspecialchars($item['rm_name']); ?></td>
                       <td><?php echo htmlspecialchars($item['grade_spec'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['size_dimension'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['nos_per_kg'] ?: '-'); ?></td>
-                      <td><strong><?php echo htmlspecialchars($item['req_qty'] ?: '1'); ?></strong></td>
                       <td><?php echo htmlspecialchars($item['uom']); ?></td>
-                      <td><?php echo htmlspecialchars($item['source']); ?></td>
                       <td>
                         <?php if ($isActive): ?>
                           <span class="tag tag-completed">Active</span>
@@ -545,7 +466,7 @@ $pageTitle = 'Child Part Master';
                   <?php endforeach; ?>
                 <?php else: ?>
                   <tr id="emptyTableRow">
-                    <td colspan="12" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>
+                    <td colspan="9" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>
                   </tr>
                 <?php endif; ?>
               </tbody>
@@ -587,55 +508,25 @@ $pageTitle = 'Child Part Master';
               <input type="text" id="inputPartName" class="form-control" placeholder="e.g., Mounting Flange Plate" required>
             </div>
 
-            <!-- 3. RM Name -->
-            <div class="cp-form-group">
-              <label for="inputRmName">RM Name *</label>
-              <input type="text" id="inputRmName" class="form-control" placeholder="e.g., CRCA Sheet 1.2mm" list="rmDataList" required>
-              <datalist id="rmDataList">
-                <?php if (!empty($rmList)): ?>
-                  <?php foreach ($rmList as $r): ?>
-                    <option value="<?php echo htmlspecialchars($r['rm_name']); ?>" 
-                            data-grade="<?php echo htmlspecialchars($r['grade_spec']); ?>" 
-                            data-size="<?php echo htmlspecialchars($r['size_dimension']); ?>" 
-                            data-uom="<?php echo htmlspecialchars($r['uom']); ?>">
-                      <?php echo htmlspecialchars($r['rm_name'] . ' (' . $r['rm_code'] . ')'); ?>
-                    </option>
-                  <?php endforeach; ?>
-                <?php else: ?>
-                  <option value="CRCA Sheet 1.2mm">
-                  <option value="HR Steel Plate 2.5mm">
-                  <option value="Aluminium Extrusion 6063">
-                  <option value="Bright Bar Round 20mm">
-                  <option value="Copper Strip 15x3mm">
-                <?php endif; ?>
-              </datalist>
-            </div>
-
-            <!-- 4. Grade / Specification -->
+            <!-- 3. Grade / Specification -->
             <div class="cp-form-group">
               <label for="inputGrade">Grade / Specification</label>
               <input type="text" id="inputGrade" class="form-control" placeholder="e.g., IS 513 CR2">
             </div>
 
-            <!-- 5. Size / Dimension -->
+            <!-- 4. Size / Dimension -->
             <div class="cp-form-group">
               <label for="inputSize">Size / Dimension</label>
               <input type="text" id="inputSize" class="form-control" placeholder="e.g., 120 x 85 mm">
             </div>
 
-            <!-- 6. Nos Per K.g -->
+            <!-- 5. Nos Per K.g -->
             <div class="cp-form-group">
               <label for="inputNosPerKg">Nos Per K.g</label>
               <input type="number" step="any" min="0" id="inputNosPerKg" class="form-control" placeholder="e.g., 14.50">
             </div>
 
-            <!-- 7. Req. Qty -->
-            <div class="cp-form-group">
-              <label for="inputReqQty">Req. Qty *</label>
-              <input type="number" step="any" min="0" id="inputReqQty" class="form-control" placeholder="e.g., 2" required>
-            </div>
-
-            <!-- 8. UOM -->
+            <!-- 6. UOM -->
             <div class="cp-form-group">
               <label for="inputUom">UOM *</label>
               <select id="inputUom" class="form-control" required>
@@ -651,30 +542,14 @@ $pageTitle = 'Child Part Master';
               </select>
             </div>
 
-            <!-- 9. Source -->
-            <div class="cp-form-group" style="grid-column: 1 / -1;">
-              <label for="inputSource">Source *</label>
-              <select id="inputSource" class="form-control" required>
-                <option value="">-- Select Source --</option>
-                <optgroup label="General Sources">
-                  <option value="In-house">In-house</option>
-                  <option value="Domestic">Domestic</option>
-                  <option value="Imported">Imported</option>
-                </optgroup>
-                <?php if (!empty($vendorList)): ?>
-                  <optgroup label="Registered Vendors">
-                    <?php foreach ($vendorList as $v): ?>
-                      <option value="<?php echo htmlspecialchars($v['vendor_name']); ?>">
-                        <?php echo htmlspecialchars($v['vendor_name']); ?>
-                      </option>
-                    <?php endforeach; ?>
-                  </optgroup>
-                <?php endif; ?>
+            <!-- 7. Status -->
+            <div class="cp-form-group">
+              <label for="inputStatus">Status *</label>
+              <select id="inputStatus" class="form-control" required>
+                <option value="Active" selected>Active</option>
+                <option value="Inactive">Inactive</option>
               </select>
             </div>
-
-            <!-- 10. Hidden Status (Default: Active) -->
-            <input type="hidden" id="inputStatus" value="Active">
 
           </div>
         </div>
@@ -731,38 +606,14 @@ $pageTitle = 'Child Part Master';
       const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
       const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
+      let pendingDeleteId = null;
       let pendingDeleteRow = null;
       let pendingDeleteCode = null;
 
       // Stats Elements
       const statTotalCp = document.getElementById('statTotalCp');
       const statActiveCp = document.getElementById('statActiveCp');
-      const statInHouseCp = document.getElementById('statInHouseCp');
-
-      // RM Input Autocomplete helpers
-      const inputRmName = document.getElementById('inputRmName');
-      const rmDataList = document.getElementById('rmDataList');
-      if (inputRmName && rmDataList) {
-        inputRmName.addEventListener('change', () => {
-          const val = inputRmName.value.trim();
-          const option = Array.from(rmDataList.options).find(opt => opt.value.toLowerCase() === val.toLowerCase());
-          if (option) {
-            const grade = option.getAttribute('data-grade');
-            const size = option.getAttribute('data-size');
-            const uom = option.getAttribute('data-uom');
-
-            if (grade && !document.getElementById('inputGrade').value) {
-              document.getElementById('inputGrade').value = grade;
-            }
-            if (size && !document.getElementById('inputSize').value) {
-              document.getElementById('inputSize').value = size;
-            }
-            if (uom && !document.getElementById('inputUom').value) {
-              document.getElementById('inputUom').value = uom;
-            }
-          }
-        });
-      }
+      const statGradesCp = document.getElementById('statGradesCp');
 
       // Toast Notification Function
       const showToast = (message, type = 'info') => {
@@ -814,28 +665,28 @@ $pageTitle = 'Child Part Master';
         const rows = Array.from(cpTableBody.querySelectorAll('tr')).filter(r => r.id !== 'emptyTableRow');
         let total = rows.length;
         let active = 0;
-        let inHouse = 0;
+        let grades = new Set();
 
         rows.forEach(r => {
           const cells = r.querySelectorAll('td');
-          if (cells.length >= 11) {
-            const sourceText = cells[9].textContent.trim();
-            const statusText = cells[10].textContent.trim();
+          if (cells.length >= 8) {
+            const gradeText = cells[3].textContent.trim();
+            const statusText = cells[7].textContent.trim();
             if (statusText.toLowerCase().includes('active')) active++;
-            if (sourceText.toLowerCase().includes('in-house')) inHouse++;
+            if (gradeText && gradeText !== '-') grades.add(gradeText.toLowerCase());
           }
         });
 
         if (statTotalCp) statTotalCp.textContent = total;
         if (statActiveCp) statActiveCp.textContent = active;
-        if (statInHouseCp) statInHouseCp.textContent = inHouse;
+        if (statGradesCp) statGradesCp.textContent = grades.size;
 
         const emptyRow = document.getElementById('emptyTableRow');
         if (total === 0) {
           if (!emptyRow) {
             const tr = document.createElement('tr');
             tr.id = 'emptyTableRow';
-            tr.innerHTML = `<td colspan="12" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>`;
+            tr.innerHTML = `<td colspan="9" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>`;
             cpTableBody.appendChild(tr);
           }
         } else if (emptyRow) {
@@ -889,6 +740,7 @@ $pageTitle = 'Child Part Master';
           deleteConfirmModal.classList.remove('active');
           document.body.style.overflow = '';
         }
+        pendingDeleteId = null;
         pendingDeleteRow = null;
         pendingDeleteCode = null;
       }
@@ -922,80 +774,116 @@ $pageTitle = 'Child Part Master';
         });
       }
 
-      // Submit Form: Client-Side Interactive Handling (UI Only)
+      // Submit Form: Store real data in MSSQL Database via API
       if (cpPopupForm) {
-        cpPopupForm.addEventListener('submit', (e) => {
+        cpPopupForm.addEventListener('submit', async (e) => {
           e.preventDefault();
 
           const id = editItemId.value ? parseInt(editItemId.value, 10) : 0;
           const code = document.getElementById('inputPartCode').value.trim();
           const name = document.getElementById('inputPartName').value.trim();
-          const rmName = document.getElementById('inputRmName').value.trim();
           const grade = document.getElementById('inputGrade').value.trim() || '-';
           const size = document.getElementById('inputSize').value.trim() || '-';
           const nosPerKg = document.getElementById('inputNosPerKg').value.trim() || '-';
-          const reqQty = document.getElementById('inputReqQty').value.trim() || '1';
           const uom = document.getElementById('inputUom').value;
-          const source = document.getElementById('inputSource').value;
           const status = document.getElementById('inputStatus').value || 'Active';
 
-          const activeTag = status === 'Active' 
-            ? '<span class="tag tag-completed">Active</span>' 
-            : '<span class="tag" style="background:#f1f5f9; color:#64748b;">Inactive</span>';
+          const action = id > 0 ? 'update' : 'create';
 
-          const actionHtml = `
-            <div style="display: flex; gap: 6px;">
-              <button type="button" class="btn-edit" title="Edit Item">Edit</button>
-              <button type="button" class="btn-delete" title="Delete Item">Delete</button>
-            </div>
-          `;
+          saveCpSubmitBtn.disabled = true;
+          const originalBtnText = saveCpSubmitBtn.textContent;
+          saveCpSubmitBtn.textContent = 'Saving...';
 
-          if (id > 0) {
-            // Update existing row
-            const row = cpTableBody.querySelector(`tr[data-id="${id}"]`);
-            if (row) {
-              row.children[1].innerHTML = `<strong>${code}</strong>`;
-              row.children[2].textContent = name;
-              row.children[3].textContent = rmName;
-              row.children[4].textContent = grade;
-              row.children[5].textContent = size;
-              row.children[6].textContent = nosPerKg;
-              row.children[7].innerHTML = `<strong>${reqQty}</strong>`;
-              row.children[8].textContent = uom;
-              row.children[9].textContent = source;
-              row.children[10].innerHTML = activeTag;
-              row.children[11].innerHTML = actionHtml;
+          try {
+            const response = await fetch('api/child_part_master.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: action,
+                id: id,
+                part_code: code,
+                part_name: name,
+                grade_spec: grade,
+                size_dimension: size,
+                nos_per_kg: nosPerKg,
+                uom: uom,
+                status: status
+              })
+            });
+
+            let result;
+            try {
+              result = await response.json();
+            } catch (jsonErr) {
+              const rawText = await response.text().catch(() => '');
+              throw new Error(rawText ? `Server returned non-JSON: ${rawText.slice(0, 100)}` : 'Invalid response from server.');
             }
-            showToast(`Child Part "${code}" updated successfully.`, 'success');
-          } else {
-            // Create new row
-            const emptyRow = document.getElementById('emptyTableRow');
-            if (emptyRow) emptyRow.remove();
 
-            const newId = Date.now();
-            const tr = document.createElement('tr');
-            tr.setAttribute('data-id', newId);
-            tr.innerHTML = `
-              <td style="color: var(--text-sub); font-weight: 600;">1</td>
-              <td><strong>${code}</strong></td>
-              <td>${name}</td>
-              <td>${rmName}</td>
-              <td>${grade}</td>
-              <td>${size}</td>
-              <td>${nosPerKg}</td>
-              <td><strong>${reqQty}</strong></td>
-              <td>${uom}</td>
-              <td>${source}</td>
-              <td>${activeTag}</td>
-              <td>${actionHtml}</td>
+            if (!response.ok || !result.success) {
+              showToast(result.message || 'Error saving to database.', 'error');
+              saveCpSubmitBtn.disabled = false;
+              saveCpSubmitBtn.textContent = originalBtnText;
+              return;
+            }
+
+            const activeTag = status === 'Active' 
+              ? '<span class="tag tag-completed">Active</span>' 
+              : '<span class="tag" style="background:#f1f5f9; color:#64748b;">Inactive</span>';
+
+            const actionHtml = `
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn-edit" title="Edit Item">Edit</button>
+                <button type="button" class="btn-delete" title="Delete Item">Delete</button>
+              </div>
             `;
-            cpTableBody.prepend(tr);
-            reindexSrNo();
-            showToast(`New Child Part "${code}" added successfully.`, 'success');
-          }
 
-          closeModal();
-          updateCounters();
+            if (id > 0) {
+              // Update existing row
+              const row = cpTableBody.querySelector(`tr[data-id="${id}"]`);
+              if (row) {
+                row.children[1].innerHTML = `<strong>${code}</strong>`;
+                row.children[2].textContent = name;
+                row.children[3].textContent = grade;
+                row.children[4].textContent = size;
+                row.children[5].textContent = nosPerKg;
+                row.children[6].textContent = uom;
+                row.children[7].innerHTML = activeTag;
+                row.children[8].innerHTML = actionHtml;
+              }
+              showToast(`Child Part "${code}" updated successfully.`, 'success');
+            } else {
+              // Create new row
+              const emptyRow = document.getElementById('emptyTableRow');
+              if (emptyRow) emptyRow.remove();
+
+              const newId = result.data?.id || Date.now();
+              const tr = document.createElement('tr');
+              tr.setAttribute('data-id', newId);
+              tr.innerHTML = `
+                <td style="color: var(--text-sub); font-weight: 600;">1</td>
+                <td><strong>${code}</strong></td>
+                <td>${name}</td>
+                <td>${grade}</td>
+                <td>${size}</td>
+                <td>${nosPerKg}</td>
+                <td>${uom}</td>
+                <td>${activeTag}</td>
+                <td>${actionHtml}</td>
+              `;
+              cpTableBody.prepend(tr);
+              reindexSrNo();
+              showToast(`New Child Part "${code}" saved successfully.`, 'success');
+            }
+
+            closeModal();
+            updateCounters();
+
+          } catch (err) {
+            showToast(err.message || 'Network or server error while saving data.', 'error');
+          } finally {
+            saveCpSubmitBtn.disabled = false;
+            saveCpSubmitBtn.textContent = originalBtnText;
+          }
         });
       }
 
@@ -1012,32 +900,18 @@ $pageTitle = 'Child Part Master';
             const cells = row.children;
             const code = cells[1].textContent.trim();
             const name = cells[2].textContent.trim();
-            const rmName = cells[3].textContent.trim();
-            const grade = cells[4].textContent.trim();
-            const size = cells[5].textContent.trim();
-            const nosPerKg = cells[6].textContent.trim();
-            const reqQty = cells[7].textContent.trim();
-            const uom = cells[8].textContent.trim();
-            const source = cells[9].textContent.trim();
-            const status = cells[10].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
+            const grade = cells[3].textContent.trim();
+            const size = cells[4].textContent.trim();
+            const nosPerKg = cells[5].textContent.trim();
+            const uom = cells[6].textContent.trim();
+            const status = cells[7].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
 
             document.getElementById('inputPartCode').value = code;
             document.getElementById('inputPartName').value = name;
-            document.getElementById('inputRmName').value = rmName;
             document.getElementById('inputGrade').value = grade === '-' ? '' : grade;
             document.getElementById('inputSize').value = size === '-' ? '' : size;
             document.getElementById('inputNosPerKg').value = nosPerKg === '-' ? '' : nosPerKg;
-            document.getElementById('inputReqQty').value = reqQty === '-' ? '' : reqQty;
             document.getElementById('inputUom').value = uom;
-            
-            // Set source
-            const sourceSelect = document.getElementById('inputSource');
-            let matchFound = Array.from(sourceSelect.options).some(o => o.value.toLowerCase() === source.toLowerCase());
-            if (!matchFound && source && source !== '-') {
-              sourceSelect.add(new Option(source, source, true, true));
-            }
-            sourceSelect.value = source;
-
             document.getElementById('inputStatus').value = status;
 
             editItemId.value = itemId;
@@ -1047,6 +921,7 @@ $pageTitle = 'Child Part Master';
           // Delete Action
           if (e.target.classList.contains('btn-delete')) {
             const code = row.children[1].textContent.trim();
+            pendingDeleteId = itemId;
             pendingDeleteRow = row;
             pendingDeleteCode = code;
 
@@ -1061,15 +936,41 @@ $pageTitle = 'Child Part Master';
 
       // Confirm Delete Action
       if (confirmDeleteBtn) {
-        confirmDeleteBtn.addEventListener('click', () => {
+        confirmDeleteBtn.addEventListener('click', async () => {
           if (!pendingDeleteRow) return;
 
           const code = pendingDeleteCode || 'Item';
-          pendingDeleteRow.remove();
-          closeDeleteConfirmModal();
-          reindexSrNo();
-          updateCounters();
-          showToast(`Child Part "${code}" deleted successfully.`, 'success');
+          confirmDeleteBtn.disabled = true;
+          confirmDeleteBtn.textContent = 'Deleting...';
+
+          try {
+            const response = await fetch('api/child_part_master.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'delete',
+                id: pendingDeleteId,
+                part_code: pendingDeleteCode
+              })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+              pendingDeleteRow.remove();
+              reindexSrNo();
+              updateCounters();
+              showToast(`Child Part "${code}" deleted successfully.`, 'success');
+            } else {
+              showToast(result.message || 'Failed to delete child part from database.', 'error');
+            }
+          } catch (err) {
+            showToast('Network error while deleting child part.', 'error');
+          } finally {
+            confirmDeleteBtn.disabled = false;
+            confirmDeleteBtn.textContent = 'Yes, Delete';
+            closeDeleteConfirmModal();
+          }
         });
       }
 

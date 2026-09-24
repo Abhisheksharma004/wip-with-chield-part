@@ -141,6 +141,27 @@ try {
     ";
     $pdoApp->exec($createVendorTableSql);
     echo "[OK] 'vendor_master' table is ready.\n";
+
+    // Create child_part_master Table
+    $createChildPartTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='child_part_master' AND xtype='U')
+    BEGIN
+        CREATE TABLE child_part_master (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            part_code NVARCHAR(50) NOT NULL UNIQUE,
+            part_name NVARCHAR(150) NOT NULL,
+            grade_spec NVARCHAR(100) NULL,
+            size_dimension NVARCHAR(100) NULL,
+            nos_per_kg NVARCHAR(50) NULL,
+            uom NVARCHAR(20) NOT NULL,
+            status NVARCHAR(50) DEFAULT 'Active',
+            created_at DATETIME DEFAULT GETDATE(),
+            updated_at DATETIME DEFAULT GETDATE()
+        );
+    END
+    ";
+    $pdoApp->exec($createChildPartTableSql);
+    echo "[OK] 'child_part_master' table is ready.\n";
 } catch (PDOException $e) {
     die("[ERROR] Failed to create tables: " . $e->getMessage() . "\n");
 }
