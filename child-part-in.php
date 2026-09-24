@@ -1,6 +1,6 @@
 <?php
 /**
- * WIP Management Portal - RM Inward (RM In)
+ * WIP Management Portal - Child Part Inward (Child Part In)
  */
 require_once __DIR__ . '/auth/check_auth.php';
 require_once __DIR__ . '/config/db.php';
@@ -14,16 +14,16 @@ $todayCount = 0;
 $todayDateStr = date('Y-m-d');
 
 $activeVendors = [];
-$activeRMs = [];
+$activeChildParts = [];
 
 if ($pdo) {
     try {
-        // 1. Fetch Inward Records (separate rows in rm_inward)
+        // 1. Fetch Inward Records (separate rows in child_part_inward)
         $stmt = $pdo->query("
             SELECT id, inward_no, CONVERT(VARCHAR(10), inward_date, 120) as inward_date, 
                    vendor_name, invoice_no, CONVERT(VARCHAR(10), invoice_date, 120) as invoice_date, 
-                   rm_code, rm_name, received_qty, uom, created_at 
-            FROM rm_inward 
+                   part_code, part_name, received_qty, uom, created_at 
+            FROM child_part_inward 
             ORDER BY id DESC
         ");
         $rawRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -44,7 +44,7 @@ if ($pdo) {
                     'invoice_date' => $row['invoice_date'] ?? '',
                     'items' => [],
                     'received_qty' => 0,
-                    'uom' => $row['uom'] ?? 'KG',
+                    'uom' => $row['uom'] ?? 'NOS',
                     'created_at' => $row['created_at'] ?? ''
                 ];
 
@@ -55,10 +55,10 @@ if ($pdo) {
 
             $grouped[$inwNo]['items'][] = [
                 'id' => $row['id'],
-                'rm_code' => $row['rm_code'] ?? '',
-                'rm_name' => $row['rm_name'] ?? '',
+                'part_code' => $row['part_code'] ?? '',
+                'part_name' => $row['part_name'] ?? '',
                 'received_qty' => floatval($row['received_qty'] ?? 0),
-                'uom' => $row['uom'] ?? 'KG'
+                'uom' => $row['uom'] ?? 'NOS'
             ];
             $grouped[$inwNo]['received_qty'] += floatval($row['received_qty'] ?? 0);
         }
@@ -69,9 +69,9 @@ if ($pdo) {
             $firstItem = $itemCount > 0 ? $itemsList[0] : null;
 
             $entry['item_count'] = $itemCount;
-            $entry['rm_code'] = ($itemCount === 1) ? ($firstItem['rm_code'] ?? '') : (($firstItem['rm_code'] ?? '') . " (+" . ($itemCount - 1) . " more)");
-            $entry['rm_name'] = ($itemCount === 1) ? ($firstItem['rm_name'] ?? '') : ($itemCount . " RM Items");
-            $entry['uom'] = $firstItem['uom'] ?? ($entry['uom'] ?? 'KG');
+            $entry['part_code'] = ($itemCount === 1) ? ($firstItem['part_code'] ?? '') : (($firstItem['part_code'] ?? '') . " (+" . ($itemCount - 1) . " more)");
+            $entry['part_name'] = ($itemCount === 1) ? ($firstItem['part_name'] ?? '') : ($itemCount . " Child Part Items");
+            $entry['uom'] = $firstItem['uom'] ?? ($entry['uom'] ?? 'NOS');
             $entry['items_data'] = json_encode($itemsList, JSON_UNESCAPED_UNICODE);
 
             $inwards[] = $entry;
@@ -83,9 +83,9 @@ if ($pdo) {
         $vendorStmt = $pdo->query("SELECT vendor_code, vendor_name FROM vendor_master WHERE status = 'Active' ORDER BY vendor_name ASC");
         $activeVendors = $vendorStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // 3. Fetch Active RMs for dropdown
-        $rmStmt = $pdo->query("SELECT rm_code, rm_name, uom FROM rm_master WHERE status = 'Active' ORDER BY rm_code ASC");
-        $activeRMs = $rmStmt->fetchAll(PDO::FETCH_ASSOC);
+        // 3. Fetch Active Child Parts for dropdown
+        $cpStmt = $pdo->query("SELECT part_code, part_name, uom FROM child_part_master WHERE status = 'Active' ORDER BY part_code ASC");
+        $activeChildParts = $cpStmt->fetchAll(PDO::FETCH_ASSOC);
 
     } catch (PDOException $e) {
         $dbError = $e->getMessage();
@@ -98,14 +98,14 @@ function formatDateDMY($dateStr) {
     return $ts ? date('d-m-Y', $ts) : $dateStr;
 }
 
-$pageTitle = 'RM Inward';
+$pageTitle = 'Child Part Inward';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RM Inward (RM In) - WIP Management Portal</title>
+  <title>Child Part Inward (Child Part In) - WIP Management Portal</title>
   
   <!-- Modern Clean Google Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,7 +197,7 @@ $pageTitle = 'RM Inward';
       position: fixed;
       top: 24px;
       right: 24px;
-      z-index: 9999;
+      z-index: 99999;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -206,33 +206,31 @@ $pageTitle = 'RM Inward';
 
     .toast {
       min-width: 280px;
-      max-width: 380px;
+      max-width: 420px;
       background: #ffffff;
       border-radius: 8px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
       padding: 12px 16px;
       display: flex;
       align-items: center;
       gap: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
       border-left: 4px solid var(--primary);
+      transform: translateX(120%);
       opacity: 0;
-      transform: translateY(-12px);
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       pointer-events: auto;
-      font-size: 0.88rem;
-      color: var(--text-main);
     }
 
     .toast.show {
+      transform: translateX(0);
       opacity: 1;
-      transform: translateY(0);
     }
 
-    .toast-success {
+    .toast.toast-success {
       border-left-color: #10b981;
     }
 
-    .toast-error {
+    .toast.toast-error {
       border-left-color: #ef4444;
     }
 
@@ -245,11 +243,6 @@ $pageTitle = 'RM Inward';
       justify-content: center;
     }
 
-    .toast-icon svg {
-      width: 18px;
-      height: 18px;
-    }
-
     .toast-success .toast-icon {
       color: #10b981;
     }
@@ -259,143 +252,92 @@ $pageTitle = 'RM Inward';
     }
 
     .toast-message {
-      flex: 1;
-      line-height: 1.4;
+      font-size: 0.88rem;
       font-weight: 500;
-    }
-
-    /* Modal Styles */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(15, 23, 42, 0.45);
-      backdrop-filter: blur(2px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity 0.2s ease, visibility 0.2s ease;
-      padding: 16px;
-    }
-
-    .modal-overlay.active {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    .modal-card {
-      background: #ffffff;
-      border-radius: 10px;
-      width: 100%;
-      max-width: 650px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
-      overflow: hidden;
-      transform: scale(0.96) translateY(-8px);
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .modal-overlay.active .modal-card {
-      transform: scale(1) translateY(0);
-    }
-
-    .modal-header {
-      padding: 16px 22px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #ffffff;
-    }
-
-    .modal-title {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--text-main);
-      margin: 0;
-    }
-
-    .modal-close-btn {
-      background: transparent;
-      border: none;
-      font-size: 1.5rem;
-      line-height: 1;
-      color: var(--text-sub);
-      cursor: pointer;
-      padding: 0 4px;
-    }
-
-    .modal-close-btn:hover {
       color: var(--text-main);
     }
 
-    .modal-body {
-      padding: 20px 22px;
-      max-height: 75vh;
-      overflow-y: auto;
-    }
-
+    /* Modal Form Grid */
     .inward-form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px;
+      gap: 14px 18px;
     }
 
-    .rm-item-row {
-      display: grid;
-      grid-template-columns: 2fr 1fr 36px;
-      gap: 12px;
-      align-items: flex-start;
-      background: #f8fafc;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
+    .inw-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
 
-    .item-field-label {
-      font-size: 0.78rem;
+    .inw-form-group label {
+      font-size: 0.8rem;
       font-weight: 600;
       color: var(--text-sub);
-      margin-bottom: 4px;
+    }
+
+    .inw-form-group .form-control {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      background: #ffffff;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.15s ease;
+      font-family: inherit;
+    }
+
+    .inw-form-group .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Dynamic Item Rows Styling */
+    .cp-item-row {
+      display: grid;
+      grid-template-columns: 1fr 140px 42px;
+      gap: 10px;
+      align-items: flex-end;
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
     }
 
     .btn-add-item-row {
-      padding: 5px 12px;
-      background: var(--primary-light);
-      border: 1px solid var(--primary);
-      border-radius: 6px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--primary);
-      cursor: pointer;
-      transition: all 0.15s ease;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
+      padding: 5px 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
     }
 
     .btn-add-item-row:hover {
-      background: var(--primary);
-      color: #ffffff;
+      background: #dcfce7;
+      border-color: #86efac;
     }
 
     .btn-remove-item-row {
-      height: 38px;
-      width: 36px;
+      height: 35px;
+      width: 35px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: #ffffff;
       border: 1px solid #fecaca;
-      border-radius: 6px;
       color: #ef4444;
-      font-size: 1.25rem;
-      font-weight: 600;
+      border-radius: 6px;
       cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: bold;
       transition: all 0.15s ease;
     }
 
@@ -405,138 +347,65 @@ $pageTitle = 'RM Inward';
     }
 
     .btn-remove-item-row:disabled {
-      opacity: 0.35;
+      opacity: 0.4;
       cursor: not-allowed;
       border-color: var(--border);
       color: var(--text-sub);
     }
 
-    @media (max-width: 580px) {
-      .inward-form-grid {
-        grid-template-columns: 1fr;
-      }
-      .rm-item-row {
-        grid-template-columns: 1fr 1fr 36px;
-      }
-      .item-col-rm {
-        grid-column: 1 / -1;
-      }
+    .item-field-label {
+      font-size: 0.76rem !important;
+      font-weight: 600 !important;
+      color: var(--text-sub) !important;
+      margin-bottom: 3px;
     }
 
-    .inw-form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .inw-form-group label {
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--text-main);
-    }
-
-    .inw-form-group .form-control {
-      width: 100%;
-      height: 38px;
-      padding: 0 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 0.86rem;
-      color: var(--text-main);
-      background: #ffffff;
-      outline: none;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
-      box-sizing: border-box;
-    }
-
-    .inw-form-group textarea.form-control {
-      height: auto;
-      min-height: 60px;
-      padding: 8px 12px;
-      resize: vertical;
-    }
-
-    .inw-form-group .form-control:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-    }
-
-    .modal-footer {
-      padding: 14px 22px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 10px;
-      background: #f8fafc;
-    }
-
-    .btn-secondary {
-      height: 36px;
-      padding: 0 14px;
-      background: #ffffff;
-      color: var(--text-main);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s ease;
-    }
-
-    .btn-secondary:hover {
-      background: #f1f5f9;
-    }
-
-    /* Delete Confirm Modal */
+    /* Delete modal custom */
     .confirm-modal-card {
-      max-width: 420px !important;
+      max-width: 420px;
       text-align: center;
-      padding: 24px 20px;
+      padding: 24px;
     }
 
     .confirm-icon-box {
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       border-radius: 50%;
       background: #fee2e2;
       color: #ef4444;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 14px auto;
+      margin: 0 auto 16px;
     }
 
     .confirm-icon-box svg {
-      width: 26px;
-      height: 26px;
+      width: 24px;
+      height: 24px;
     }
 
     .confirm-title {
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       font-weight: 700;
       color: var(--text-main);
       margin-bottom: 8px;
     }
 
     .confirm-desc {
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       color: var(--text-sub);
-      line-height: 1.45;
-      margin-bottom: 22px;
+      margin-bottom: 24px;
+      line-height: 1.4;
     }
 
     .confirm-actions {
       display: flex;
-      align-items: center;
+      gap: 10px;
       justify-content: center;
-      gap: 12px;
     }
 
     .btn-danger-confirm {
-      height: 36px;
-      padding: 0 18px;
+      padding: 8px 16px;
       background: #ef4444;
       color: #ffffff;
       border: none;
@@ -555,7 +424,7 @@ $pageTitle = 'RM Inward';
 <body>
 
   <!-- Toast Notification Container -->
-  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+  <div id="toastContainer" class="toast-container"></div>
 
   <!-- Mobile Sidebar Backdrop -->
   <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
@@ -565,9 +434,7 @@ $pageTitle = 'RM Inward';
     <!-- Reusable Sidebar Component -->
     <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
-    <!-- ==========================================
-         Main Area
-         ========================================== -->
+    <!-- Main Content Area -->
     <div class="main-content">
       
       <!-- Reusable Top Bar Component -->
@@ -576,7 +443,7 @@ $pageTitle = 'RM Inward';
       <!-- Page Body -->
       <div class="content-body">
         
-        <!-- Simple 3 Stats Cards -->
+        <!-- Stats Cards -->
         <div class="stats-row">
           <div class="simple-card stat-box">
             <div class="stat-number" id="statTotalInwards"><?php echo number_format($totalCount); ?></div>
@@ -585,7 +452,7 @@ $pageTitle = 'RM Inward';
 
           <div class="simple-card stat-box">
             <div class="stat-number completed" id="statTotalQty"><?php echo number_format($totalQty, 2); ?></div>
-            <div class="stat-title">Total Qty Received (kg)</div>
+            <div class="stat-title">Total Qty Received</div>
           </div>
 
           <div class="simple-card stat-box">
@@ -594,15 +461,13 @@ $pageTitle = 'RM Inward';
           </div>
         </div>
 
-        <!-- ==========================================
-             Simple Table Card
-             ========================================== -->
+        <!-- Table Card -->
         <div class="simple-card table-box">
           <div class="table-bar">
-            <h2 class="box-title">RM Inward Register</h2>
+            <h2 class="box-title">Child Part Inward Register</h2>
             <div class="table-actions">
-              <input type="text" id="inwardSearch" class="simple-input" placeholder="Search Vendor, Invoice No, RM Item...">
-              <button type="button" class="btn-primary" id="openAddModalBtn">+ Inward RM</button>
+              <input type="text" id="inwardSearch" class="simple-input" placeholder="Search Vendor, Invoice No, Child Part...">
+              <button type="button" class="btn-primary" id="openAddModalBtn">+ Inward Child Part</button>
             </div>
           </div>
 
@@ -615,7 +480,7 @@ $pageTitle = 'RM Inward';
                   <th>Vendor</th>
                   <th>Invoice / Challan No.</th>
                   <th style="width: 120px;">Invoice Date</th>
-                  <th>RM Item</th>
+                  <th>Child Part Item</th>
                   <th style="width: 140px;">Received Qty</th>
                   <th style="width: 175px; text-align: center;">Action</th>
                 </tr>
@@ -626,15 +491,7 @@ $pageTitle = 'RM Inward';
                   <?php foreach ($inwards as $item): ?>
                     <?php
                       $rowItemsJson = $item['items_data'] ?? '';
-                      if (empty($rowItemsJson)) {
-                          $rowItemsJson = json_encode([[
-                              'rm_code' => $item['rm_code'] ?? '',
-                              'rm_name' => $item['rm_name'] ?? '',
-                              'received_qty' => floatval($item['received_qty'] ?? 0),
-                              'uom' => $item['uom'] ?? 'KG'
-                          ]], JSON_UNESCAPED_UNICODE);
-                      }
-                      $parsedItems = json_decode($rowItemsJson, true) ?: [];
+                      $parsedItems = $item['items'] ?? (json_decode($rowItemsJson, true) ?: []);
                       $itemCount = count($parsedItems);
                     ?>
                     <tr data-id="<?php echo htmlspecialchars($item['id']); ?>"
@@ -643,10 +500,10 @@ $pageTitle = 'RM Inward';
                         data-vendor_name="<?php echo htmlspecialchars($item['vendor_name'] ?? ''); ?>"
                         data-invoice_no="<?php echo htmlspecialchars($item['invoice_no'] ?? ''); ?>"
                         data-invoice_date="<?php echo htmlspecialchars($item['invoice_date'] ?? ''); ?>"
-                        data-rm_code="<?php echo htmlspecialchars($item['rm_code'] ?? ''); ?>"
-                        data-rm_name="<?php echo htmlspecialchars($item['rm_name'] ?? ''); ?>"
+                        data-part_code="<?php echo htmlspecialchars($item['part_code'] ?? ''); ?>"
+                        data-part_name="<?php echo htmlspecialchars($item['part_name'] ?? ''); ?>"
                         data-received_qty="<?php echo htmlspecialchars($item['received_qty'] ?? '0'); ?>"
-                        data-uom="<?php echo htmlspecialchars($item['uom'] ?? 'KG'); ?>"
+                        data-uom="<?php echo htmlspecialchars($item['uom'] ?? 'NOS'); ?>"
                         data-items="<?php echo htmlspecialchars($rowItemsJson, ENT_QUOTES, 'UTF-8'); ?>">
                       <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $sr++; ?></td>
                       <td class="col-inward-info">
@@ -673,14 +530,14 @@ $pageTitle = 'RM Inward';
                         <?php echo !empty($item['invoice_date']) ? htmlspecialchars(formatDateDMY($item['invoice_date'])) : '<span style="color: var(--text-sub);">-</span>'; ?>
                       </td>
                       <td>
-                        <div class="col-rm-info">
+                        <div class="col-cp-info">
                           <?php if ($itemCount > 1): ?>
-                            <strong style="color: var(--primary);"><?php echo $itemCount; ?> RM Items</strong>
-                            <span class="sub-meta"><?php echo htmlspecialchars($item['rm_code']); ?></span>
+                            <strong style="color: var(--primary);"><?php echo $itemCount; ?> Child Parts</strong>
+                            <span class="sub-meta"><?php echo htmlspecialchars($item['part_code']); ?></span>
                           <?php else: ?>
-                            <strong><?php echo htmlspecialchars($item['rm_code']); ?></strong>
-                            <?php if (!empty($item['rm_name'])): ?>
-                              <span class="sub-meta"><?php echo htmlspecialchars($item['rm_name']); ?></span>
+                            <strong><?php echo htmlspecialchars($item['part_code']); ?></strong>
+                            <?php if (!empty($item['part_name'])): ?>
+                              <span class="sub-meta"><?php echo htmlspecialchars($item['part_name']); ?></span>
                             <?php endif; ?>
                           <?php endif; ?>
                         </div>
@@ -701,7 +558,7 @@ $pageTitle = 'RM Inward';
                   <?php endforeach; ?>
                 <?php else: ?>
                   <tr id="emptyTableRow">
-                    <td colspan="8" class="empty-row-msg">No RM inward records found. Click "+ Inward RM" to create one.</td>
+                    <td colspan="8" class="empty-row-msg">No Child Part inward records found. Click "+ Inward Child Part" to create one.</td>
                   </tr>
                 <?php endif; ?>
               </tbody>
@@ -716,16 +573,16 @@ $pageTitle = 'RM Inward';
   </div>
 
   <!-- ==========================================
-       Add / Edit RM Inward Popup Modal
+       Add / Edit Child Part Inward Popup Modal
        ========================================== -->
-  <div id="rmInPopupModal" class="modal-overlay">
+  <div id="cpInPopupModal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title" id="modalFormTitle">+ Inward Raw Material</h3>
+        <h3 class="modal-title" id="modalFormTitle">+ Inward Child Part</h3>
         <button type="button" class="modal-close-btn" id="closeModalBtn" aria-label="Close modal">&times;</button>
       </div>
 
-      <form id="rmInPopupForm">
+      <form id="cpInPopupForm">
         <input type="hidden" id="editItemId" value="">
         <input type="hidden" id="inputInwardNo" value="">
         <input type="hidden" id="inputInwardDate" value="<?php echo date('Y-m-d'); ?>">
@@ -758,11 +615,11 @@ $pageTitle = 'RM Inward';
               <input type="date" id="inputInvoiceDate" class="form-control">
             </div>
 
-            <!-- Multiple Raw Material Items Section -->
+            <!-- Multiple Child Part Items Section -->
             <div style="grid-column: 1 / -1; margin-top: 6px;">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <label style="font-size: 0.84rem; font-weight: 700; color: var(--text-main);">Raw Material Items *</label>
-                <button type="button" id="btnAddItemRow" class="btn-add-item-row" title="Add another raw material item">+ Add More Item</button>
+                <label style="font-size: 0.84rem; font-weight: 700; color: var(--text-main);">Child Part Items *</label>
+                <button type="button" id="btnAddItemRow" class="btn-add-item-row" title="Add another child part item">+ Add More Item</button>
               </div>
 
               <div id="itemsContainer" style="display: flex; flex-direction: column; gap: 10px;">
@@ -784,21 +641,21 @@ $pageTitle = 'RM Inward';
 
   <!-- Item Row Template for Multiple Items -->
   <template id="itemRowTemplate">
-    <div class="rm-item-row">
-      <!-- RM Item -->
-      <div class="inw-form-group item-col-rm">
-        <label class="item-field-label">RM Item *</label>
-        <select class="form-control item-rm-code" required>
-          <option value="">-- Select Raw Material --</option>
-          <?php foreach ($activeRMs as $rm): ?>
-            <option value="<?php echo htmlspecialchars($rm['rm_code']); ?>" 
-                    data-name="<?php echo htmlspecialchars($rm['rm_name']); ?>" 
-                    data-uom="<?php echo htmlspecialchars($rm['uom']); ?>">
-              <?php echo htmlspecialchars($rm['rm_code']); ?> - <?php echo htmlspecialchars($rm['rm_name']); ?> (<?php echo htmlspecialchars($rm['uom']); ?>)
+    <div class="cp-item-row">
+      <!-- Child Part Item -->
+      <div class="inw-form-group item-col-cp">
+        <label class="item-field-label">Child Part *</label>
+        <select class="form-control item-part-code" required>
+          <option value="">-- Select Child Part --</option>
+          <?php foreach ($activeChildParts as $cp): ?>
+            <option value="<?php echo htmlspecialchars($cp['part_code']); ?>" 
+                    data-name="<?php echo htmlspecialchars($cp['part_name']); ?>" 
+                    data-uom="<?php echo htmlspecialchars($cp['uom']); ?>">
+              <?php echo htmlspecialchars($cp['part_code']); ?> - <?php echo htmlspecialchars($cp['part_name']); ?> (<?php echo htmlspecialchars($cp['uom']); ?>)
             </option>
           <?php endforeach; ?>
         </select>
-        <input type="hidden" class="item-rm-name" value="">
+        <input type="hidden" class="item-part-name" value="">
       </div>
 
       <!-- Received Quantity -->
@@ -807,8 +664,8 @@ $pageTitle = 'RM Inward';
         <input type="number" step="0.01" min="0.01" class="form-control item-received-qty" placeholder="0.00" required>
       </div>
 
-      <!-- Hidden UOM (Auto-retrieved from RM Item) -->
-      <input type="hidden" class="item-uom" value="KG">
+      <!-- Hidden UOM (Auto-retrieved from Child Part) -->
+      <input type="hidden" class="item-uom" value="NOS">
 
       <!-- Action: Remove -->
       <div class="item-col-action">
@@ -852,10 +709,10 @@ $pageTitle = 'RM Inward';
           </div>
         </div>
 
-        <!-- Raw Materials Table Section -->
+        <!-- Child Parts Table Section -->
         <div style="margin-top: 18px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Raw Material Items & Quantities</div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Child Part Items & Quantities</div>
             <span id="viewItemsCountBadge" class="tag tag-completed">0 Items</span>
           </div>
 
@@ -864,7 +721,7 @@ $pageTitle = 'RM Inward';
               <thead>
                 <tr style="background: #f1f5f9; border-bottom: 1px solid var(--border);">
                   <th style="padding: 9px 12px; width: 45px; color: var(--text-sub); font-weight: 600; text-align: center;">#</th>
-                  <th style="padding: 9px 12px; color: var(--text-sub); font-weight: 600;">Raw Material</th>
+                  <th style="padding: 9px 12px; color: var(--text-sub); font-weight: 600;">Child Part</th>
                   <th style="padding: 9px 12px; text-align: right; width: 130px; color: var(--text-sub); font-weight: 600;">Received Qty</th>
                   <th style="padding: 9px 12px; text-align: center; width: 70px; color: var(--text-sub); font-weight: 600;">UOM</th>
                 </tr>
@@ -950,9 +807,9 @@ $pageTitle = 'RM Inward';
       }
 
       // 2. Elements Cache
-      const modal = document.getElementById('rmInPopupModal');
+      const modal = document.getElementById('cpInPopupModal');
       const modalTitle = document.getElementById('modalFormTitle');
-      const form = document.getElementById('rmInPopupForm');
+      const form = document.getElementById('cpInPopupForm');
       const openAddBtn = document.getElementById('openAddModalBtn');
       const closeModalBtn = document.getElementById('closeModalBtn');
       const cancelModalBtn = document.getElementById('cancelModalBtn');
@@ -989,28 +846,28 @@ $pageTitle = 'RM Inward';
       function addItemRow(initialData = null) {
         const tpl = document.getElementById('itemRowTemplate');
         const clone = tpl.content.cloneNode(true);
-        const row = clone.querySelector('.rm-item-row');
-        const rmSelect = row.querySelector('.item-rm-code');
-        const rmNameHidden = row.querySelector('.item-rm-name');
+        const row = clone.querySelector('.cp-item-row');
+        const cpSelect = row.querySelector('.item-part-code');
+        const cpNameHidden = row.querySelector('.item-part-name');
         const qtyInput = row.querySelector('.item-received-qty');
         const uomInput = row.querySelector('.item-uom');
         const removeBtn = row.querySelector('.btn-remove-item-row');
 
-        // Auto-fill UOM and name when RM selected
-        rmSelect.addEventListener('change', () => {
-          const selected = rmSelect.options[rmSelect.selectedIndex];
+        // Auto-fill UOM and name when Child Part selected
+        cpSelect.addEventListener('change', () => {
+          const selected = cpSelect.options[cpSelect.selectedIndex];
           if (selected && selected.value) {
-            rmNameHidden.value = selected.getAttribute('data-name') || '';
-            uomInput.value = (selected.getAttribute('data-uom') || 'KG').toUpperCase();
+            cpNameHidden.value = selected.getAttribute('data-name') || '';
+            uomInput.value = (selected.getAttribute('data-uom') || 'NOS').toUpperCase();
           } else {
-            rmNameHidden.value = '';
-            uomInput.value = 'KG';
+            cpNameHidden.value = '';
+            uomInput.value = 'NOS';
           }
         });
 
         // Remove row listener
         removeBtn.addEventListener('click', () => {
-          const allRows = itemsContainer.querySelectorAll('.rm-item-row');
+          const allRows = itemsContainer.querySelectorAll('.cp-item-row');
           if (allRows.length > 1) {
             row.remove();
             updateRemoveButtons();
@@ -1021,8 +878,8 @@ $pageTitle = 'RM Inward';
 
         // Populate initial data if in edit mode
         if (initialData) {
-          if (initialData.rm_code) rmSelect.value = initialData.rm_code;
-          if (initialData.rm_name) rmNameHidden.value = initialData.rm_name;
+          if (initialData.part_code) cpSelect.value = initialData.part_code;
+          if (initialData.part_name) cpNameHidden.value = initialData.part_name;
           if (initialData.received_qty) qtyInput.value = initialData.received_qty;
           if (initialData.uom) uomInput.value = initialData.uom;
         }
@@ -1033,7 +890,7 @@ $pageTitle = 'RM Inward';
       }
 
       function updateRemoveButtons() {
-        const allRows = itemsContainer.querySelectorAll('.rm-item-row');
+        const allRows = itemsContainer.querySelectorAll('.cp-item-row');
         allRows.forEach(r => {
           const btn = r.querySelector('.btn-remove-item-row');
           if (btn) btn.disabled = (allRows.length <= 1);
@@ -1043,7 +900,7 @@ $pageTitle = 'RM Inward';
       if (btnAddItemRow) {
         btnAddItemRow.addEventListener('click', () => {
           const newRow = addItemRow();
-          const newSelect = newRow.querySelector('.item-rm-code');
+          const newSelect = newRow.querySelector('.item-part-code');
           if (newSelect) newSelect.focus();
         });
       }
@@ -1051,7 +908,7 @@ $pageTitle = 'RM Inward';
       // 4. Modal Open & Close
       function openModal(isEdit = false, editItemData = null) {
         if (!isEdit) {
-          modalTitle.textContent = '+ Inward Raw Material';
+          modalTitle.textContent = '+ Inward Child Part';
           saveSubmitBtn.textContent = '+ Save Inward Entry';
           form.reset();
           editItemId.value = '';
@@ -1064,7 +921,7 @@ $pageTitle = 'RM Inward';
           addItemRow();
           if (btnAddItemRow) btnAddItemRow.style.display = 'inline-flex';
         } else {
-          modalTitle.textContent = 'Edit RM Inward';
+          modalTitle.textContent = 'Edit Child Part Inward';
           saveSubmitBtn.textContent = 'Update Inward Entry';
           itemsContainer.innerHTML = '';
           if (Array.isArray(editItemData) && editItemData.length > 0) {
@@ -1126,7 +983,7 @@ $pageTitle = 'RM Inward';
           if (!emptyRow) {
             const tr = document.createElement('tr');
             tr.id = 'emptyTableRow';
-            tr.innerHTML = `<td colspan="8" class="empty-row-msg">No RM inward records found. Click "+ Inward RM" to create one.</td>`;
+            tr.innerHTML = `<td colspan="8" class="empty-row-msg">No Child Part inward records found. Click "+ Inward Child Part" to create one.</td>`;
             tableBody.appendChild(tr);
           }
         } else if (emptyRow) {
@@ -1152,24 +1009,24 @@ $pageTitle = 'RM Inward';
         const isEdit = !!id;
 
         // Gather all rows from itemsContainer
-        const itemRows = itemsContainer.querySelectorAll('.rm-item-row');
+        const itemRows = itemsContainer.querySelectorAll('.cp-item-row');
         const items = [];
 
         itemRows.forEach(row => {
-          const rmSelect = row.querySelector('.item-rm-code');
-          const rmNameHidden = row.querySelector('.item-rm-name');
+          const cpSelect = row.querySelector('.item-part-code');
+          const cpNameHidden = row.querySelector('.item-part-name');
           const qtyInput = row.querySelector('.item-received-qty');
           const uomSelect = row.querySelector('.item-uom');
 
-          const rmCode = rmSelect ? rmSelect.value.trim() : '';
-          const rmName = rmNameHidden ? (rmNameHidden.value.trim() || rmSelect.options[rmSelect.selectedIndex]?.getAttribute('data-name') || '') : '';
+          const partCode = cpSelect ? cpSelect.value.trim() : '';
+          const partName = cpNameHidden ? (cpNameHidden.value.trim() || cpSelect.options[cpSelect.selectedIndex]?.getAttribute('data-name') || '') : '';
           const qty = qtyInput ? (parseFloat(qtyInput.value) || 0) : 0;
-          const uom = uomSelect ? (uomSelect.value.trim() || 'KG') : 'KG';
+          const uom = uomSelect ? (uomSelect.value.trim() || 'NOS') : 'NOS';
 
-          if (rmCode && qty > 0) {
+          if (partCode && qty > 0) {
             items.push({
-              rm_code: rmCode,
-              rm_name: rmName,
+              part_code: partCode,
+              part_name: partName,
               received_qty: qty,
               uom: uom
             });
@@ -1182,7 +1039,7 @@ $pageTitle = 'RM Inward';
         }
 
         if (items.length === 0) {
-          showToast('Please select at least one RM item and enter a valid quantity.', 'error');
+          showToast('Please select at least one Child Part item and enter a valid quantity.', 'error');
           return;
         }
 
@@ -1201,7 +1058,7 @@ $pageTitle = 'RM Inward';
         saveSubmitBtn.textContent = 'Saving...';
 
         try {
-          const res = await fetch('api/rm_in.php', {
+          const res = await fetch('api/child_part_in.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -1223,7 +1080,7 @@ $pageTitle = 'RM Inward';
               row.dataset.id = savedData.id;
               updateTableRow(row, savedData);
             }
-            showToast(data.message || 'RM Inward entry updated successfully!', 'success');
+            showToast(data.message || 'Child Part Inward entry updated successfully!', 'success');
           } else {
             // Prepend new single row
             const emptyRow = document.getElementById('emptyTableRow');
@@ -1231,7 +1088,7 @@ $pageTitle = 'RM Inward';
 
             const newRow = createTableRow(savedData);
             tableBody.insertBefore(newRow, tableBody.firstChild);
-            showToast(data.message || 'RM Inward entry created successfully!', 'success');
+            showToast(data.message || 'Child Part Inward entry created successfully!', 'success');
           }
 
           closeModal();
@@ -1260,20 +1117,20 @@ $pageTitle = 'RM Inward';
         tr.dataset.vendor_name = item.vendor_name || '';
         tr.dataset.invoice_no = item.invoice_no || '';
         tr.dataset.invoice_date = item.invoice_date || '';
-        tr.dataset.rm_code = item.rm_code || '';
-        tr.dataset.rm_name = item.rm_name || '';
+        tr.dataset.part_code = item.part_code || '';
+        tr.dataset.part_name = item.part_name || '';
         tr.dataset.received_qty = item.received_qty || '0';
-        tr.dataset.uom = item.uom || 'KG';
+        tr.dataset.uom = item.uom || 'NOS';
 
         let itemsData = item.items_data;
         if (!itemsData && item.items) {
           itemsData = JSON.stringify(item.items);
         } else if (!itemsData) {
           itemsData = JSON.stringify([{
-            rm_code: item.rm_code || '',
-            rm_name: item.rm_name || '',
+            part_code: item.part_code || '',
+            part_name: item.part_name || '',
             received_qty: item.received_qty || 0,
-            uom: item.uom || 'KG'
+            uom: item.uom || 'NOS'
           }]);
         }
         tr.dataset.items = itemsData;
@@ -1299,12 +1156,12 @@ $pageTitle = 'RM Inward';
           ? escapeHtml(formattedInvoiceDate) 
           : `<span style="color:var(--text-sub);">-</span>`;
 
-        const rmInfoHtml = itemCount > 1 ? `
-          <strong style="color: var(--primary);">${itemCount} RM Items</strong>
-          <span class="sub-meta">${escapeHtml(item.rm_code)}</span>
+        const cpInfoHtml = itemCount > 1 ? `
+          <strong style="color: var(--primary);">${itemCount} Child Parts</strong>
+          <span class="sub-meta">${escapeHtml(item.part_code)}</span>
         ` : `
-          <strong>${escapeHtml(item.rm_code)}</strong>
-          ${item.rm_name ? `<span class="sub-meta">${escapeHtml(item.rm_name)}</span>` : ''}
+          <strong>${escapeHtml(item.part_code)}</strong>
+          ${item.part_name ? `<span class="sub-meta">${escapeHtml(item.part_name)}</span>` : ''}
         `;
 
         tr.innerHTML = `
@@ -1317,8 +1174,8 @@ $pageTitle = 'RM Inward';
           <td class="col-invoice-no">${invoiceNoHtml}</td>
           <td class="col-invoice-date">${invoiceDateHtml}</td>
           <td>
-            <div class="col-rm-info">
-              ${rmInfoHtml}
+            <div class="col-cp-info">
+              ${cpInfoHtml}
             </div>
           </td>
           <td class="col-qty">
@@ -1361,10 +1218,10 @@ $pageTitle = 'RM Inward';
 
           if (!Array.isArray(parsedItems) || parsedItems.length === 0) {
             parsedItems = [{
-              rm_code: row.dataset.rm_code || '',
-              rm_name: row.dataset.rm_name || '',
+              part_code: row.dataset.part_code || '',
+              part_name: row.dataset.part_name || '',
               received_qty: row.dataset.received_qty || '',
-              uom: row.dataset.uom || 'KG'
+              uom: row.dataset.uom || 'NOS'
             }];
           }
 
@@ -1400,10 +1257,10 @@ $pageTitle = 'RM Inward';
 
         if (!Array.isArray(items) || items.length === 0) {
           items = [{
-            rm_code: row.dataset.rm_code || '-',
-            rm_name: row.dataset.rm_name || '',
+            part_code: row.dataset.part_code || '-',
+            part_name: row.dataset.part_name || '',
             received_qty: parseFloat(row.dataset.received_qty || 0),
-            uom: row.dataset.uom || 'KG'
+            uom: row.dataset.uom || 'NOS'
           }];
         }
 
@@ -1415,12 +1272,12 @@ $pageTitle = 'RM Inward';
         tbody.innerHTML = '';
 
         let totalQty = 0;
-        let lastUom = 'KG';
+        let lastUom = 'NOS';
 
         items.forEach((it, idx) => {
           const q = parseFloat(it.received_qty || 0);
           totalQty += q;
-          const u = it.uom || 'KG';
+          const u = it.uom || 'NOS';
           lastUom = u;
 
           const tr = document.createElement('tr');
@@ -1428,8 +1285,8 @@ $pageTitle = 'RM Inward';
           tr.innerHTML = `
             <td style="padding: 10px 12px; text-align: center; color: var(--text-sub); font-weight: 600;">${idx + 1}</td>
             <td style="padding: 10px 12px;">
-              <strong style="color: var(--text-main); font-size: 0.9rem;">${escapeHtml(it.rm_code)}</strong>
-              ${it.rm_name ? `<div style="font-size: 0.8rem; color: var(--text-sub); margin-top: 2px;">${escapeHtml(it.rm_name)}</div>` : ''}
+              <strong style="color: var(--text-main); font-size: 0.9rem;">${escapeHtml(it.part_code)}</strong>
+              ${it.part_name ? `<div style="font-size: 0.8rem; color: var(--text-sub); margin-top: 2px;">${escapeHtml(it.part_name)}</div>` : ''}
             </td>
             <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: #065f46; font-size: 0.92rem;">
               ${q.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1493,7 +1350,7 @@ $pageTitle = 'RM Inward';
           confirmDeleteBtn.textContent = 'Deleting...';
 
           try {
-            const res = await fetch('api/rm_in.php', {
+            const res = await fetch('api/child_part_in.php', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'delete', id: itemToDeleteId, inward_no: itemToDeleteInwardNo })
@@ -1513,7 +1370,7 @@ $pageTitle = 'RM Inward';
               }, 200);
             }
 
-            showToast(data.message || 'RM Inward entry deleted successfully.', 'success');
+            showToast(data.message || 'Child Part Inward entry deleted successfully.', 'success');
             closeDeleteModal();
 
           } catch (err) {
@@ -1525,7 +1382,7 @@ $pageTitle = 'RM Inward';
         });
       }
 
-      // 11. Live Search Filter
+      // 12. Live Search Filter
       if (searchInput) {
         searchInput.addEventListener('input', () => {
           const query = searchInput.value.trim().toLowerCase();
@@ -1535,16 +1392,16 @@ $pageTitle = 'RM Inward';
             const inwardNo = (r.dataset.inward_no || '').toLowerCase();
             const inwardDate = (formatDateDMY(r.dataset.inward_date) || '').toLowerCase();
             const vendor = (r.dataset.vendor_name || '').toLowerCase();
-            const rmCode = (r.dataset.rm_code || '').toLowerCase();
-            const rmName = (r.dataset.rm_name || '').toLowerCase();
+            const partCode = (r.dataset.part_code || '').toLowerCase();
+            const partName = (r.dataset.part_name || '').toLowerCase();
             const invoiceNo = (r.dataset.invoice_no || '').toLowerCase();
             const invoiceDate = (formatDateDMY(r.dataset.invoice_date) || '').toLowerCase();
 
             const matches = inwardNo.includes(query) || 
                             inwardDate.includes(query) ||
                             vendor.includes(query) || 
-                            rmCode.includes(query) || 
-                            rmName.includes(query) || 
+                            partCode.includes(query) || 
+                            partName.includes(query) || 
                             invoiceNo.includes(query) ||
                             invoiceDate.includes(query);
 

@@ -104,17 +104,7 @@ $isMasterActive = in_array($currentScript, [
       </div>
     </div>
 
-    <!-- 3. DPR -->
-    <a href="#" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="DPR">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10"></line>
-        <line x1="12" y1="20" x2="12" y2="4"></line>
-        <line x1="6" y1="20" x2="6" y2="14"></line>
-      </svg>
-      DPR
-    </a>
-
-    <!-- 4. BOM -->
+    <!-- 4. BOM
     <a href="#" class="menu-item <?= ($currentScript === 'bom.php' || $currentScript === 'bom') ? 'active' : '' ?>" title="BOM">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -124,7 +114,7 @@ $isMasterActive = in_array($currentScript, [
         <polyline points="10 9 9 9 8 9"></polyline>
       </svg>
       BOM
-    </a>
+    </a> -->
 
     <!-- 5. RM In -->
     <a href="rm-in.php" class="menu-item <?= ($currentScript === 'rm-in.php' || $currentScript === 'rm-in') ? 'active' : '' ?>" title="RM In">
@@ -136,14 +126,55 @@ $isMasterActive = in_array($currentScript, [
       RM In
     </a>
 
-    <!-- 6. RM Consumption -->
-    <a href="rm-consumption.php" class="menu-item <?= ($currentScript === 'rm-consumption.php' || $currentScript === 'rm-consumption') ? 'active' : '' ?>" title="RM Consumption">
+    <!-- 6. Child Part In -->
+    <a href="child-part-in.php" class="menu-item <?= ($currentScript === 'child-part-in.php' || $currentScript === 'child-part-in') ? 'active' : '' ?>" title="Child Part In">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 3v18h18"></path>
-        <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path>
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
       </svg>
-      RM Consumption
+      Child Part In
     </a>
+
+    <!-- 7. MIP -->
+    <a href="rm-consumption.php" class="menu-item <?= ($currentScript === 'rm-consumption.php' || $currentScript === 'rm-consumption') ? 'active' : '' ?>" title="RM Consumption">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="21 15 16 10 5 21"></polyline>
+    <polyline points="18 15 16 11 2 19"></polyline>
+  </svg>
+      MIP
+    </a>
+
+    <!-- 3. DPR -->
+    <a href="#" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="DPR">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      Production
+    </a>
+
+     <!-- 3. DPR -->
+    <a href="#" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="DPR">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      FG Store
+    </a>
+
+     <!-- 3. DPR -->
+    <a href="#" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="DPR">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      Reports
+    </a>
+
   </nav>
 
   <!-- Sidebar Bottom Logout -->

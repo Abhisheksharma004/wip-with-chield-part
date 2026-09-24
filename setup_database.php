@@ -222,6 +222,30 @@ try {
     ";
     $pdoApp->exec($createRmInwardTableSql);
     echo "[OK] 'rm_inward' table is ready.\n";
+
+    // Create child_part_inward Table
+    $createChildPartInwardTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='child_part_inward' AND xtype='U')
+    BEGIN
+        CREATE TABLE child_part_inward (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            inward_no NVARCHAR(50) NOT NULL,
+            inward_date DATE NOT NULL,
+            vendor_id INT NULL,
+            vendor_name NVARCHAR(150) NOT NULL,
+            invoice_no NVARCHAR(50) NULL,
+            invoice_date DATE NULL,
+            part_code NVARCHAR(50) NOT NULL,
+            part_name NVARCHAR(150) NOT NULL,
+            received_qty DECIMAL(18, 3) NOT NULL,
+            uom NVARCHAR(20) NOT NULL DEFAULT 'NOS',
+            created_at DATETIME DEFAULT GETDATE(),
+            updated_at DATETIME DEFAULT GETDATE()
+        );
+    END
+    ";
+    $pdoApp->exec($createChildPartInwardTableSql);
+    echo "[OK] 'child_part_inward' table is ready.\n";
 } catch (PDOException $e) {
     die("[ERROR] Failed to create tables: " . $e->getMessage() . "\n");
 }
