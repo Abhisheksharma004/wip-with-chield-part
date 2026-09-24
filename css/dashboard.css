@@ -123,6 +123,116 @@ body {
   font-weight: 600;
 }
 
+/* Sidebar Dropdown / Submenu */
+.sidebar-dropdown {
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-align: left;
+}
+
+.dropdown-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dropdown-toggle-left svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dropdown-chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s ease;
+  color: var(--text-sub);
+}
+
+.sidebar-dropdown.open .dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.dropdown-toggle:hover {
+  background: var(--bg-page);
+  color: var(--text-main);
+}
+
+.sidebar-dropdown.open .dropdown-toggle {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.sidebar-submenu {
+  display: none;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 18px;
+  margin-top: 2px;
+  position: relative;
+}
+
+.sidebar-submenu::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 4px;
+  bottom: 8px;
+  width: 1.5px;
+  background: var(--border);
+  border-radius: 1px;
+}
+
+.sidebar-dropdown.open .sidebar-submenu {
+  display: flex;
+}
+
+.submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px 8px 18px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--text-sub);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.submenu-item svg {
+  width: 15px;
+  height: 15px;
+  opacity: 0.85;
+}
+
+.submenu-item:hover {
+  background: var(--bg-page);
+  color: var(--text-main);
+}
+
+.submenu-item.active {
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+}
+
 .sidebar-bottom {
   padding: 14px 16px;
   border-top: 1px solid var(--border);
