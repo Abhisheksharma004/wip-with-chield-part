@@ -198,6 +198,30 @@ try {
     ";
     $pdoApp->exec($createProcessTableSql);
     echo "[OK] 'process_master' table is ready.\n";
+
+    // Create rm_inward Table
+    $createRmInwardTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='rm_inward' AND xtype='U')
+    BEGIN
+        CREATE TABLE rm_inward (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            inward_no NVARCHAR(50) NOT NULL,
+            inward_date DATE NOT NULL,
+            vendor_id INT NULL,
+            vendor_name NVARCHAR(150) NOT NULL,
+            invoice_no NVARCHAR(50) NULL,
+            invoice_date DATE NULL,
+            rm_code NVARCHAR(50) NOT NULL,
+            rm_name NVARCHAR(150) NOT NULL,
+            received_qty DECIMAL(18, 3) NOT NULL,
+            uom NVARCHAR(20) NOT NULL DEFAULT 'KG',
+            created_at DATETIME DEFAULT GETDATE(),
+            updated_at DATETIME DEFAULT GETDATE()
+        );
+    END
+    ";
+    $pdoApp->exec($createRmInwardTableSql);
+    echo "[OK] 'rm_inward' table is ready.\n";
 } catch (PDOException $e) {
     die("[ERROR] Failed to create tables: " . $e->getMessage() . "\n");
 }

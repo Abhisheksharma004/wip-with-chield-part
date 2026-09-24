@@ -15,6 +15,7 @@ if (!isset($pageTitle)) {
         'part-master.php' => 'Part Master',
         'dpr.php' => 'DPR',
         'bom.php' => 'BOM',
+        'rm-in.php' => 'RM Inward',
         'rm-consumption.php' => 'RM Consumption',
     ];
     $pageTitle = $pageTitles[$script] ?? 'WIP Management';

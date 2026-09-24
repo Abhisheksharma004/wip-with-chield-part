@@ -533,9 +533,11 @@ $gradeCount = count($gradesSet);
               <label for="inputUom">UOM *</label>
               <select id="inputUom" class="form-control" required>
                 <option value="">-- Select UOM --</option>
+                <option value="NOS">NOS</option>
+                <option value="SET">SET</option>
+                <option value="PCS">PCS</option>
                 <option value="KG">KG</option>
                 <option value="MTR">MTR</option>
-                <option value="NOS">NOS</option>
                 <option value="SQM">SQM</option>
                 <option value="TON">TON</option>
                 <option value="LTR">LTR</option>
