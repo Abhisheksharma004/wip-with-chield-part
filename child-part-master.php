@@ -14,7 +14,7 @@ $gradesSet = [];
 
 if ($pdo) {
     try {
-        $stmt = $pdo->query("SELECT id, part_code, part_name, grade_spec, size_dimension, nos_per_kg, uom, current_stock, status FROM child_part_master ORDER BY id DESC");
+        $stmt = $pdo->query("SELECT id, part_code, part_name, grade_spec, size_dimension, nos_per_kg, current_stock, uom, status FROM child_part_master ORDER BY id DESC");
         $childParts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $totalCount = count($childParts);
         foreach ($childParts as $cp) {
@@ -429,8 +429,8 @@ $pageTitle = 'Child Part Master';
                   <th>Grade / Specification</th>
                   <th>Size / Dimension</th>
                   <th>Nos Per K.g</th>
-                  <th>UOM</th>
                   <th>Current Stock</th>
+                  <th>UOM</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -452,12 +452,12 @@ $pageTitle = 'Child Part Master';
                       <td><?php echo htmlspecialchars($item['grade_spec'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['size_dimension'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['nos_per_kg'] ?: '-'); ?></td>
-                      <td><?php echo htmlspecialchars($item['uom']); ?></td>
                       <td>
                         <span class="stock-badge" style="display:inline-block; font-weight:700; color:#0f172a; background:#f1f5f9; padding:3px 9px; border-radius:5px; border:1px solid #e2e8f0; font-variant-numeric:tabular-nums;">
                           <?php echo htmlspecialchars($dispStock); ?>
                         </span>
                       </td>
+                      <td><?php echo htmlspecialchars($item['uom']); ?></td>
                       <td>
                         <?php if ($isActive): ?>
                           <span class="tag tag-completed">Active</span>
@@ -885,8 +885,8 @@ $pageTitle = 'Child Part Master';
                 row.children[3].textContent = grade;
                 row.children[4].textContent = size;
                 row.children[5].textContent = nosPerKg;
-                row.children[6].textContent = uom;
-                row.children[7].innerHTML = stockHtml;
+                row.children[6].innerHTML = stockHtml;
+                row.children[7].textContent = uom;
                 row.children[8].innerHTML = activeTag;
                 row.children[9].innerHTML = actionHtml;
               }
@@ -907,8 +907,8 @@ $pageTitle = 'Child Part Master';
                 <td>${grade}</td>
                 <td>${size}</td>
                 <td>${nosPerKg}</td>
-                <td>${uom}</td>
                 <td>${stockHtml}</td>
+                <td>${uom}</td>
                 <td>${activeTag}</td>
                 <td>${actionHtml}</td>
               `;
@@ -945,9 +945,9 @@ $pageTitle = 'Child Part Master';
             const grade = cells[3].textContent.trim();
             const size = cells[4].textContent.trim();
             const nosPerKg = cells[5].textContent.trim();
-            const uom = cells[6].textContent.trim();
-            const rawStock = row.getAttribute('data-stock') || cells[7].textContent.trim().replace(/,/g, '');
+            const rawStock = row.getAttribute('data-stock') || cells[6].textContent.trim().replace(/,/g, '');
             const numStock = parseFloat(rawStock || 0);
+            const uom = cells[7].textContent.trim();
             const status = cells[8].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
 
             document.getElementById('inputPartCode').value = code;

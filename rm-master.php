@@ -11,7 +11,7 @@ $gradesSet = [];
 
 if ($pdo) {
     try {
-        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom, current_stock, status FROM rm_master ORDER BY id DESC");
+        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, current_stock, uom, status FROM rm_master ORDER BY id DESC");
         $rmItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $totalCount = count($rmItems);
         foreach ($rmItems as $it) {
@@ -439,8 +439,8 @@ $gradeCount = count($gradesSet);
                   <th>RM Name</th>
                   <th>Grade / Specification</th>
                   <th>Size / Dimension</th>
-                  <th>UOM</th>
                   <th>Current Stock</th>
+                  <th>UOM</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -459,12 +459,12 @@ $gradeCount = count($gradesSet);
                       <td><?php echo htmlspecialchars($item['rm_name']); ?></td>
                       <td><?php echo htmlspecialchars($item['grade_spec'] ?: '-'); ?></td>
                       <td><?php echo htmlspecialchars($item['size_dimension'] ?: '-'); ?></td>
-                      <td><?php echo htmlspecialchars($item['uom']); ?></td>
                       <td>
                         <span class="stock-badge" style="display:inline-block; font-weight:700; color:#0f172a; background:#f1f5f9; padding:3px 9px; border-radius:5px; border:1px solid #e2e8f0; font-variant-numeric:tabular-nums;">
                           <?php echo htmlspecialchars($dispStock); ?>
                         </span>
                       </td>
+                      <td><?php echo htmlspecialchars($item['uom']); ?></td>
                       <td>
                         <?php if ($isActive): ?>
                           <span class="tag tag-completed">Active</span>
@@ -878,8 +878,8 @@ $gradeCount = count($gradesSet);
                 row.children[1].textContent = name;
                 row.children[2].textContent = grade;
                 row.children[3].textContent = size;
-                row.children[4].textContent = uom;
-                row.children[5].innerHTML = stockHtml;
+                row.children[4].innerHTML = stockHtml;
+                row.children[5].textContent = uom;
                 row.children[6].innerHTML = activeTag;
                 row.children[7].innerHTML = actionHtml;
               }
@@ -899,8 +899,8 @@ $gradeCount = count($gradesSet);
                 <td>${name}</td>
                 <td>${grade}</td>
                 <td>${size}</td>
-                <td>${uom}</td>
                 <td>${stockHtml}</td>
+                <td>${uom}</td>
                 <td>${activeTag}</td>
                 <td>${actionHtml}</td>
               `;
@@ -935,9 +935,9 @@ $gradeCount = count($gradesSet);
             const name = cells[1].textContent.trim();
             const grade = cells[2].textContent.trim();
             const size = cells[3].textContent.trim();
-            const uom = cells[4].textContent.trim();
-            const rawStock = row.getAttribute('data-stock') || cells[5].textContent.trim().replace(/,/g, '');
+            const rawStock = row.getAttribute('data-stock') || cells[4].textContent.trim().replace(/,/g, '');
             const numStock = parseFloat(rawStock || 0);
+            const uom = cells[5].textContent.trim();
             const status = cells[6].textContent.trim().toLowerCase().includes('active') ? 'Active' : 'Inactive';
 
             document.getElementById('inputRmCode').value = code;

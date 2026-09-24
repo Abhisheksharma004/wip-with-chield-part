@@ -30,7 +30,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 // Handle GET request - Fetch all Child Part records
 if ($method === 'GET') {
     try {
-        $stmt = $pdo->query("SELECT id, part_code, part_name, grade_spec, size_dimension, nos_per_kg, uom, current_stock, status, created_at FROM child_part_master ORDER BY id DESC");
+        $stmt = $pdo->query("SELECT id, part_code, part_name, grade_spec, size_dimension, nos_per_kg, current_stock, uom, status, created_at FROM child_part_master ORDER BY id DESC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
@@ -127,10 +127,10 @@ if ($method === 'POST') {
 
             $updateStmt = $pdo->prepare("
                 UPDATE child_part_master 
-                SET part_code = ?, part_name = ?, grade_spec = ?, size_dimension = ?, nos_per_kg = ?, uom = ?, current_stock = ?, status = ?, updated_at = GETDATE()
+                SET part_code = ?, part_name = ?, grade_spec = ?, size_dimension = ?, nos_per_kg = ?, current_stock = ?, uom = ?, status = ?, updated_at = GETDATE()
                 WHERE id = ?
             ");
-            $updateStmt->execute([$partCode, $partName, $gradeSpec, $sizeDimension, $nosPerKg, $uom, $currentStock, $status, $id]);
+            $updateStmt->execute([$partCode, $partName, $gradeSpec, $sizeDimension, $nosPerKg, $currentStock, $uom, $status, $id]);
 
             echo json_encode([
                 'success' => true, 
@@ -142,8 +142,8 @@ if ($method === 'POST') {
                     'grade_spec' => $gradeSpec,
                     'size_dimension' => $sizeDimension,
                     'nos_per_kg' => $nosPerKg,
-                    'uom' => $uom,
                     'current_stock' => $currentStock,
+                    'uom' => $uom,
                     'status' => $status
                 ]
             ]);
@@ -167,10 +167,10 @@ if ($method === 'POST') {
         }
 
         $insertStmt = $pdo->prepare("
-            INSERT INTO child_part_master (part_code, part_name, grade_spec, size_dimension, nos_per_kg, uom, current_stock, status, created_at, updated_at)
+            INSERT INTO child_part_master (part_code, part_name, grade_spec, size_dimension, nos_per_kg, current_stock, uom, status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
         ");
-        $insertStmt->execute([$partCode, $partName, $gradeSpec, $sizeDimension, $nosPerKg, $uom, $currentStock, $status]);
+        $insertStmt->execute([$partCode, $partName, $gradeSpec, $sizeDimension, $nosPerKg, $currentStock, $uom, $status]);
 
         $newId = $pdo->lastInsertId();
 

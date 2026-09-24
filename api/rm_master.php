@@ -30,7 +30,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 // Handle GET request - Fetch all RM records
 if ($method === 'GET') {
     try {
-        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, uom, current_stock, status, created_at FROM rm_master ORDER BY id DESC");
+        $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, current_stock, uom, status, created_at FROM rm_master ORDER BY id DESC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
@@ -127,10 +127,10 @@ if ($method === 'POST') {
 
             $updateStmt = $pdo->prepare("
                 UPDATE rm_master 
-                SET rm_code = ?, rm_name = ?, grade_spec = ?, size_dimension = ?, uom = ?, current_stock = ?, status = ?, updated_at = GETDATE()
+                SET rm_code = ?, rm_name = ?, grade_spec = ?, size_dimension = ?, current_stock = ?, uom = ?, status = ?, updated_at = GETDATE()
                 WHERE id = ?
             ");
-            $updateStmt->execute([$rmCode, $rmName, $gradeSpec, $sizeDimension, $uom, $currentStock, $status, $id]);
+            $updateStmt->execute([$rmCode, $rmName, $gradeSpec, $sizeDimension, $currentStock, $uom, $status, $id]);
 
             echo json_encode([
                 'success' => true, 
@@ -141,8 +141,8 @@ if ($method === 'POST') {
                     'rm_name' => $rmName,
                     'grade_spec' => $gradeSpec,
                     'size_dimension' => $sizeDimension,
-                    'uom' => $uom,
                     'current_stock' => $currentStock,
+                    'uom' => $uom,
                     'status' => $status
                 ]
             ]);
@@ -166,10 +166,10 @@ if ($method === 'POST') {
         }
 
         $insertStmt = $pdo->prepare("
-            INSERT INTO rm_master (rm_code, rm_name, grade_spec, size_dimension, uom, current_stock, status, created_at, updated_at)
+            INSERT INTO rm_master (rm_code, rm_name, grade_spec, size_dimension, current_stock, uom, status, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
         ");
-        $insertStmt->execute([$rmCode, $rmName, $gradeSpec, $sizeDimension, $uom, $currentStock, $status]);
+        $insertStmt->execute([$rmCode, $rmName, $gradeSpec, $sizeDimension, $currentStock, $uom, $status]);
 
         $newId = $pdo->lastInsertId();
 
