@@ -90,7 +90,7 @@ if ($method === 'GET') {
             SELECT id, issue_no, 
                    CONVERT(VARCHAR(10), issue_date, 120) as issue_date,
                    part_code, part_name, issued_qty, uom, 
-                   work_order, department, status, remarks, 
+                   work_order, department, status, remarks, received_by,
                    child_parts_details, created_at, updated_at
             FROM material_issue
             ORDER BY id DESC
@@ -197,6 +197,7 @@ if ($method === 'POST') {
     $department = trim($data['department'] ?? '');
     $status = trim($data['status'] ?? 'Issued');
     $remarks = trim($data['remarks'] ?? '');
+    $receivedBy = trim($data['received_by'] ?? '');
 
     if (empty($partCode)) {
         http_response_code(400);
@@ -296,13 +297,14 @@ if ($method === 'POST') {
                     department = ?,
                     status = ?,
                     remarks = ?,
+                    received_by = ?,
                     child_parts_details = ?,
                     updated_at = GETDATE()
                 WHERE id = ?
             ");
             $updStmt->execute([
                 $issueNo, $issueDate, $partCode, $partName, $issuedQty, $uom,
-                $workOrder, $department, $status, $remarks, $childPartsJson, $id
+                $workOrder, $department, $status, $remarks, $receivedBy, $childPartsJson, $id
             ]);
 
             // 4. Deduct new child parts stock
@@ -337,6 +339,7 @@ if ($method === 'POST') {
                     'department' => $department,
                     'status' => $status,
                     'remarks' => $remarks,
+                    'received_by' => $receivedBy,
                     'child_parts_details' => $childPartsJson
                 ]
             ]);
@@ -369,13 +372,13 @@ if ($method === 'POST') {
             $insertStmt = $pdo->prepare("
                 INSERT INTO material_issue (
                     issue_no, issue_date, part_code, part_name, issued_qty, uom,
-                    work_order, department, status, remarks, child_parts_details,
+                    work_order, department, status, remarks, received_by, child_parts_details,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
             ");
             $insertStmt->execute([
                 $issueNo, $issueDate, $partCode, $partName, $issuedQty, $uom,
-                $workOrder, $department, $status, $remarks, $childPartsJson
+                $workOrder, $department, $status, $remarks, $receivedBy, $childPartsJson
             ]);
 
             $newId = intval($pdo->lastInsertId());
@@ -412,6 +415,7 @@ if ($method === 'POST') {
                     'department' => $department,
                     'status' => $status,
                     'remarks' => $remarks,
+                    'received_by' => $receivedBy,
                     'child_parts_details' => $childPartsJson
                 ]
             ]);

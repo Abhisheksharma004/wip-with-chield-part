@@ -623,6 +623,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
                         data-department="<?php echo htmlspecialchars($item['department'] ?? ''); ?>"
                         data-status="<?php echo htmlspecialchars($item['status'] ?? 'Issued'); ?>"
                         data-remarks="<?php echo htmlspecialchars($item['remarks'] ?? ''); ?>"
+                        data-received_by="<?php echo htmlspecialchars($item['received_by'] ?? ''); ?>"
                         data-child_parts_details="<?php echo htmlspecialchars($item['child_parts_details'] ?? ''); ?>">
                       <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $sr++; ?></td>
                       <td>
@@ -801,6 +802,12 @@ $pageTitle = 'Material Issue for Production (MIP)';
               <input type="text" id="inputRemarks" class="form-control" placeholder="Notes or instructions">
             </div>
 
+            <!-- 10. Received By -->
+            <div class="form-group">
+              <label for="inputReceivedBy">Received By</label>
+              <input type="text" id="inputReceivedBy" class="form-control" placeholder="Name of person receiving material">
+            </div>
+
           </div>
         </div>
 
@@ -865,6 +872,10 @@ $pageTitle = 'Material Issue for Production (MIP)';
             <div style="font-size: 0.88rem; font-weight: 600; color: var(--text-main); margin-top: 2px;" id="viewDepartment"></div>
           </div>
           <div>
+            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-sub); font-weight: 600;">Received By</div>
+            <div style="font-size: 0.88rem; font-weight: 600; color: var(--text-main); margin-top: 2px;" id="viewReceivedBy">-</div>
+          </div>
+          <div>
             <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-sub); font-weight: 600;">Status</div>
             <div style="margin-top: 2px;" id="viewStatusTag"></div>
           </div>
@@ -900,6 +911,9 @@ $pageTitle = 'Material Issue for Production (MIP)';
 
         <div id="viewRemarksRow" style="margin-top: 12px; font-size: 0.8rem; color: var(--text-sub); background: #fdfdfd; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); display: none;">
           <strong>Remarks:</strong> <span id="viewRemarksText"></span>
+        </div>
+        <div id="viewReceivedByRow" style="margin-top: 8px; font-size: 0.8rem; color: var(--text-sub); background: #fdfdfd; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); display: none;">
+          <strong>Received By:</strong> <span id="viewReceivedByText"></span>
         </div>
       </div>
 
@@ -1008,6 +1022,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
       tr.setAttribute('data-department', item.department || '');
       tr.setAttribute('data-status', item.status || 'Issued');
       tr.setAttribute('data-remarks', item.remarks || '');
+      tr.setAttribute('data-received_by', item.received_by || '');
       tr.setAttribute('data-child_parts_details', typeof item.child_parts_details === 'string' ? item.child_parts_details : JSON.stringify(item.child_parts_details || []));
 
       const statusTag = item.status === 'Completed'
@@ -1214,6 +1229,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
         document.getElementById('inputIssueQty').value = '';
         document.getElementById('inputWorkOrder').value = '';
         document.getElementById('inputRemarks').value = '';
+        document.getElementById('inputReceivedBy').value = '';
         document.getElementById('inputStatus').value = 'Issued';
         inputPartSelect.value = '';
         renderChildPartsRequirement();
@@ -1249,6 +1265,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
         const department = document.getElementById('inputDepartment').value;
         const status = document.getElementById('inputStatus').value;
         const remarks = document.getElementById('inputRemarks').value.trim();
+        const receivedBy = document.getElementById('inputReceivedBy').value.trim();
 
         if (!partCode) {
           showToast('Please select a Part.', 'error');
@@ -1276,7 +1293,8 @@ $pageTitle = 'Material Issue for Production (MIP)';
             work_order: workOrder,
             department: department,
             status: status,
-            remarks: remarks
+            remarks: remarks,
+            received_by: receivedBy
           };
 
           const res = await fetch('api/mip.php', {
@@ -1556,6 +1574,10 @@ $pageTitle = 'Material Issue for Production (MIP)';
                 <td class="lbl">Remarks:</td>
                 <td class="val" colspan="3">${escapeHtml(data.remarks || 'None')}</td>
               </tr>
+              <tr>
+                <td class="lbl">Received By:</td>
+                <td class="val" colspan="3">${escapeHtml(data.receivedBy || '-')}</td>
+              </tr>
             </table>
 
             <div class="section-heading">Child Parts Consumed / Required Details (BOM)</div>
@@ -1583,7 +1605,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
                 </td>
                 <td>
                   <div class="sig-title">RECEIVED BY (PRODUCTION)</div>
-                  <div class="sig-space"></div>
+                  ${data.receivedBy ? `<div style="margin: 8px 0 4px; font-size: 13px; font-weight: bold; color: #0f172a;">${escapeHtml(data.receivedBy)}</div>` : '<div class="sig-space"></div>'}
                   <div class="sig-line">Signature & Date</div>
                 </td>
                 <td>
@@ -1641,6 +1663,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
         document.getElementById('viewIssuedQty').textContent = `${formatStock(data.qty)} ${escapeHtml(data.uom)}`;
         document.getElementById('viewWorkOrder').textContent = data.workOrder || '-';
         document.getElementById('viewDepartment').textContent = data.department || '-';
+        document.getElementById('viewReceivedBy').textContent = data.receivedBy || '-';
 
         const statusTag = data.status === 'Completed'
           ? '<span class="tag tag-completed">Completed</span>'
@@ -1655,6 +1678,16 @@ $pageTitle = 'Material Issue for Production (MIP)';
           document.getElementById('viewRemarksText').textContent = data.remarks;
         } else {
           remarksRow.style.display = 'none';
+        }
+
+        const viewReceivedByRow = document.getElementById('viewReceivedByRow');
+        if (viewReceivedByRow) {
+          if (data.receivedBy) {
+            viewReceivedByRow.style.display = 'block';
+            document.getElementById('viewReceivedByText').textContent = data.receivedBy;
+          } else {
+            viewReceivedByRow.style.display = 'none';
+          }
         }
 
         let childParts = [];
@@ -1738,6 +1771,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
           department: row.getAttribute('data-department') || '',
           status: row.getAttribute('data-status') || '',
           remarks: row.getAttribute('data-remarks') || '',
+          receivedBy: row.getAttribute('data-received_by') || '',
           childPartsDetails: row.getAttribute('data-child_parts_details') || ''
         };
       }
@@ -1775,6 +1809,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
           document.getElementById('inputDepartment').value = row.getAttribute('data-department') || '';
           document.getElementById('inputStatus').value = row.getAttribute('data-status') || 'Issued';
           document.getElementById('inputRemarks').value = row.getAttribute('data-remarks') || '';
+          document.getElementById('inputReceivedBy').value = row.getAttribute('data-received_by') || '';
 
           renderChildPartsRequirement();
           openModal('Edit Issue: ' + (row.getAttribute('data-issue_no') || ''));
