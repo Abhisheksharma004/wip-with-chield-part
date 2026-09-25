@@ -262,6 +262,31 @@ try {
     ";
     $pdoApp->exec($createChildPartInwardTableSql);
     echo "[OK] 'child_part_inward' table is ready.\n";
+
+    // Create material_issue Table (MIP)
+    $createMipTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='material_issue' AND xtype='U')
+    BEGIN
+        CREATE TABLE material_issue (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            issue_no NVARCHAR(50) NOT NULL UNIQUE,
+            issue_date DATE NOT NULL,
+            part_code NVARCHAR(50) NOT NULL,
+            part_name NVARCHAR(150) NOT NULL,
+            issued_qty DECIMAL(18, 3) NOT NULL,
+            uom NVARCHAR(20) NOT NULL DEFAULT 'NOS',
+            work_order NVARCHAR(100) NULL,
+            department NVARCHAR(100) NULL,
+            status NVARCHAR(50) DEFAULT 'Issued',
+            remarks NVARCHAR(500) NULL,
+            child_parts_details NVARCHAR(MAX) NULL,
+            created_at DATETIME DEFAULT GETDATE(),
+            updated_at DATETIME DEFAULT GETDATE()
+        );
+    END
+    ";
+    $pdoApp->exec($createMipTableSql);
+    echo "[OK] 'material_issue' table is ready.\n";
 } catch (PDOException $e) {
     die("[ERROR] Failed to create tables: " . $e->getMessage() . "\n");
 }
