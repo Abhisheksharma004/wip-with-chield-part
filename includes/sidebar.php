@@ -135,7 +135,7 @@ $isMasterActive = in_array($currentScript, [
     </a>
 
     <!-- 8. Production -->
-    <a href="dpr.php" class="menu-item <?= ($currentScript === 'dpr.php' || $currentScript === 'dpr' || $currentScript === 'production.php') ? 'active' : '' ?>" title="Production">
+    <a href="production.php" class="menu-item <?= ($currentScript === 'production.php' || $currentScript === 'production' || $currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="Production">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4H2z"></path>
         <line x1="17" y1="18" x2="17.01" y2="18"></line>

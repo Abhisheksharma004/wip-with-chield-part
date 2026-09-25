@@ -18,6 +18,7 @@ if (!isset($pageTitle)) {
         'rm-in.php' => 'RM Inward',
         'child-part-in.php' => 'Child Part Inward',
         'mip.php' => 'Material Issue for Production (MIP)',
+        'production.php' => 'Production Entry / DPR',
     ];
     $pageTitle = $pageTitles[$script] ?? 'WIP Management';
 }
