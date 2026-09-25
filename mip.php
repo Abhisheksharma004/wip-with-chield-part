@@ -170,7 +170,7 @@ if ($pdo) {
             SELECT id, issue_no, 
                    CONVERT(VARCHAR(10), issue_date, 120) as issue_date,
                    part_code, part_name, issued_qty, uom, 
-                   work_order, department, status, remarks, 
+                   work_order, department, received_by, status, remarks, 
                    child_parts_details, created_at, updated_at
             FROM material_issue
             ORDER BY id DESC
@@ -597,7 +597,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
                   <th style="width: 110px;">Issued Qty</th>
                   <th style="width: 70px;">UOM</th>
                   <th>Work Order No.</th>
-                  <th>Issued To (Floor / Dept)</th>
+                  <th>Issued To (Floor &amp; Rec. By)</th>
                   <th style="width: 110px;">Status</th>
                   <th style="width: 200px; text-align: center;">Action</th>
                 </tr>
@@ -638,7 +638,12 @@ $pageTitle = 'Material Issue for Production (MIP)';
                       </td>
                       <td><?php echo htmlspecialchars($item['uom']); ?></td>
                       <td><strong><?php echo htmlspecialchars(!empty($item['work_order']) ? $item['work_order'] : '-'); ?></strong></td>
-                      <td><?php echo htmlspecialchars(!empty($item['department']) ? $item['department'] : '-'); ?></td>
+                      <td>
+                        <strong><?php echo htmlspecialchars(!empty($item['department']) ? $item['department'] : '-'); ?></strong>
+                        <?php if (!empty($item['received_by'])): ?>
+                          <br><span style="font-size:0.75rem; color:var(--text-sub);">Rec: <?php echo htmlspecialchars($item['received_by']); ?></span>
+                        <?php endif; ?>
+                      </td>
                       <td>
                         <?php if ($item['status'] === 'Completed'): ?>
                           <span class="tag tag-completed">Completed</span>
@@ -1045,7 +1050,10 @@ $pageTitle = 'Material Issue for Production (MIP)';
         </td>
         <td>${escapeHtml(item.uom)}</td>
         <td><strong>${escapeHtml(item.work_order || '-')}</strong></td>
-        <td>${escapeHtml(item.department || '-')}</td>
+        <td>
+          <strong style="color:#1e293b;">${escapeHtml(item.department || '-')}</strong>
+          ${item.received_by ? `<br><span style="font-size:0.75rem; color:var(--text-sub);">Rec: ${escapeHtml(item.received_by)}</span>` : ''}
+        </td>
         <td>${statusTag}</td>
         <td style="text-align: center;">
           <div style="display: flex; gap: 4px; justify-content: center;">
@@ -1566,17 +1574,15 @@ $pageTitle = 'Material Issue for Production (MIP)';
               </tr>
               <tr>
                 <td class="lbl">Issued To (Floor):</td>
-                <td class="val">${escapeHtml(data.department || '-')}</td>
+                <td class="val"><strong>${escapeHtml(data.department || '-')}</strong></td>
+                <td class="lbl">Received By:</td>
+                <td class="val"><strong>${escapeHtml(data.receivedBy || '-')}</strong></td>
+              </tr>
+              <tr>
                 <td class="lbl">Issue Status:</td>
                 <td class="val">${escapeHtml(data.status || 'Issued')}</td>
-              </tr>
-              <tr>
                 <td class="lbl">Remarks:</td>
-                <td class="val" colspan="3">${escapeHtml(data.remarks || 'None')}</td>
-              </tr>
-              <tr>
-                <td class="lbl">Received By:</td>
-                <td class="val" colspan="3">${escapeHtml(data.receivedBy || '-')}</td>
+                <td class="val">${escapeHtml(data.remarks || 'None')}</td>
               </tr>
             </table>
 

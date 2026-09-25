@@ -40,7 +40,7 @@ if ($pdo) {
             SELECT id, issue_no, 
                    CONVERT(VARCHAR(10), issue_date, 120) as issue_date,
                    part_code, part_name, issued_qty, uom, 
-                   work_order, department, status, remarks, 
+                   work_order, department, received_by, status, remarks, 
                    child_parts_details
             FROM material_issue
             ORDER BY id DESC
@@ -66,6 +66,7 @@ if (empty($mipList)) {
             'uom' => 'PCS',
             'work_order' => 'WO-2026-101',
             'department' => 'FLOOR1',
+            'received_by' => 'Ramesh Kumar',
             'status' => 'Issued',
             'remarks' => 'Batch 1 for press line',
             'child_parts_details' => json_encode([
@@ -83,6 +84,7 @@ if (empty($mipList)) {
             'uom' => 'PCS',
             'work_order' => 'WO-2026-102',
             'department' => 'FLOOR2',
+            'received_by' => 'Suresh Verma',
             'status' => 'Issued',
             'remarks' => 'Welding bay allocation',
             'child_parts_details' => json_encode([
@@ -100,6 +102,7 @@ if (empty($mipList)) {
             'uom' => 'PCS',
             'work_order' => 'WO-2026-098',
             'department' => 'FLOOR1',
+            'received_by' => 'Rajesh Singh',
             'status' => 'Issued',
             'remarks' => 'Laser profiling requirement',
             'child_parts_details' => json_encode([
@@ -160,134 +163,46 @@ $todayDmy = date('d-m-Y');
 $todaySqlDate = date('Y-m-d');
 $yesterdaySqlDate = date('Y-m-d', strtotime('-1 day'));
 
-// Sample Production / DPR records for UI demonstration
-$productionList = [
-    [
-        'id' => 1,
-        'prd_no' => 'PRD-2026-001',
-        'prd_date' => $todaySqlDate,
-        'shift' => 'Shift A (06:00 - 14:00)',
-        'part_code' => 'P1001',
-        'part_name' => 'Front Mounting Assembly',
-        'process_name' => 'Stamping & Press',
-        'work_order' => 'WO-2026-101',
-        'machine_no' => 'Press Machine-01',
-        'operator_name' => 'Ramesh Kumar',
-        'supervisor_name' => 'Amit Sharma',
-        'target_qty' => 120,
-        'ok_qty' => 118,
-        'rework_qty' => 0,
-        'rejected_qty' => 2,
-        'rejection_reason' => 'Surface Burr / Rough Edge',
-        'uom' => 'PCS',
-        'status' => 'Completed',
-        'remarks' => 'Smooth run on line-1'
-    ],
-    [
-        'id' => 2,
-        'prd_no' => 'PRD-2026-002',
-        'prd_date' => $todaySqlDate,
-        'shift' => 'Shift A (06:00 - 14:00)',
-        'part_code' => 'P1002',
-        'part_name' => 'Main Chassis Sub-Assembly',
-        'process_name' => 'Welding & Assembly',
-        'work_order' => 'WO-2026-102',
-        'machine_no' => 'Weld-Bay-3',
-        'operator_name' => 'Sunil Verma',
-        'supervisor_name' => 'Amit Sharma',
-        'target_qty' => 80,
-        'ok_qty' => 78,
-        'rework_qty' => 0,
-        'rejected_qty' => 2,
-        'rejection_reason' => 'Excess Weld Spatter',
-        'uom' => 'PCS',
-        'status' => 'Completed',
-        'remarks' => 'Completed on time'
-    ],
-    [
-        'id' => 3,
-        'prd_no' => 'PRD-2026-003',
-        'prd_date' => $todaySqlDate,
-        'shift' => 'Shift B (14:00 - 22:00)',
-        'part_code' => 'P1001',
-        'part_name' => 'Front Mounting Assembly',
-        'process_name' => 'Laser Profiling',
-        'work_order' => 'WO-2026-105',
-        'machine_no' => 'Fiber-Laser-02',
-        'operator_name' => 'Deepak Sharma',
-        'supervisor_name' => 'Praveen Yadav',
-        'target_qty' => 150,
-        'ok_qty' => 146,
-        'rework_qty' => 2,
-        'rejected_qty' => 2,
-        'rejection_reason' => 'Edge Distortion',
-        'uom' => 'PCS',
-        'status' => 'In Progress',
-        'remarks' => 'Batch 2 currently running'
-    ],
-    [
-        'id' => 4,
-        'prd_no' => 'PRD-2026-004',
-        'prd_date' => $yesterdaySqlDate,
-        'shift' => 'Shift B (14:00 - 22:00)',
-        'part_code' => 'P1003',
-        'part_name' => 'Support Bracket Assembly',
-        'process_name' => 'CNC Bending',
-        'work_order' => 'WO-2026-098',
-        'machine_no' => 'Brake-Press-01',
-        'operator_name' => 'Vikram Singh',
-        'supervisor_name' => 'Praveen Yadav',
-        'target_qty' => 100,
-        'ok_qty' => 100,
-        'rework_qty' => 0,
-        'rejected_qty' => 0,
-        'rejection_reason' => 'None',
-        'uom' => 'PCS',
-        'status' => 'Completed',
-        'remarks' => 'Zero defects achieved'
-    ],
-    [
-        'id' => 5,
-        'prd_no' => 'PRD-2026-005',
-        'prd_date' => $yesterdaySqlDate,
-        'shift' => 'General Shift (09:00 - 17:30)',
-        'part_code' => 'P1004',
-        'part_name' => 'Retainer Frame Assembly',
-        'process_name' => 'Powder Coating',
-        'work_order' => 'WO-2026-095',
-        'machine_no' => 'Booth-01',
-        'operator_name' => 'Manoj Gupta',
-        'supervisor_name' => 'Amit Sharma',
-        'target_qty' => 60,
-        'ok_qty' => 58,
-        'rework_qty' => 1,
-        'rejected_qty' => 1,
-        'rejection_reason' => 'Paint Sagging / Uneven Coat',
-        'uom' => 'PCS',
-        'status' => 'Completed',
-        'remarks' => 'Curing oven cycle completed'
-    ]
-];
-
-// Aggregate Statistics
-$totalEntries = count($productionList);
+// Real Production / DPR records from MSSQL Database
+$productionList = [];
 $totalProducedOk = 0;
 $totalRejections = 0;
 $totalRework = 0;
 $todayOutput = 0;
 
-foreach ($productionList as $item) {
-    $totalProducedOk += floatval($item['ok_qty']);
-    $totalRejections += floatval($item['rejected_qty']);
-    $totalRework += floatval($item['rework_qty'] ?? 0);
-    if ($item['prd_date'] === $todaySqlDate) {
-        $todayOutput += floatval($item['ok_qty']);
+if ($pdo) {
+    try {
+        $stmtPrd = $pdo->query("
+            SELECT id, mip_no, work_order, part_code, part_name,
+                   department, received_by, process_name, shift,
+                   target_qty, ok_qty, rework_qty, rejected_qty,
+                   operator_name, uom, status,
+                   CONVERT(VARCHAR(10), created_at, 120) as entry_date,
+                   CONVERT(VARCHAR(19), created_at, 120) as created_at
+            FROM production_entry
+            ORDER BY id DESC
+        ");
+        if ($stmtPrd) {
+            $productionList = $stmtPrd->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        foreach ($productionList as $item) {
+            $totalProducedOk += floatval($item['ok_qty'] ?? 0);
+            $totalRejections += floatval($item['rejected_qty'] ?? 0);
+            $totalRework += floatval($item['rework_qty'] ?? 0);
+            if (($item['entry_date'] ?? '') === $todaySqlDate) {
+                $todayOutput += floatval($item['ok_qty'] ?? 0);
+            }
+        }
+    } catch (PDOException $e) {
+        // Fallback gracefully
     }
 }
 
+// Aggregate Statistics
+$totalEntries = count($productionList);
 $totalInspected = $totalProducedOk + $totalRework + $totalRejections;
 $yieldRate = $totalInspected > 0 ? round(($totalProducedOk / $totalInspected) * 100, 1) : 100.0;
-$nextPrdNo = 'PRD-' . date('Y') . '-' . str_pad($totalEntries + 1, 3, '0', STR_PAD_LEFT);
 
 $pageTitle = 'Production Entry / Daily Production Report (DPR)';
 ?>
@@ -736,7 +651,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
             
             <div class="table-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
               <!-- Search Input -->
-              <input type="text" id="prdSearch" class="simple-input" style="min-width: 220px;" placeholder="Search PRD No, Part, Work Order...">
+              <input type="text" id="prdSearch" class="simple-input" style="min-width: 220px;" placeholder="Search MIP No, Part, Work Order, Operator...">
               
               <!-- Filter by Shift -->
               <select id="filterShift" class="simple-input" style="width: auto;">
@@ -766,90 +681,97 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
               <thead>
                 <tr>
                   <th style="width: 45px; text-align: center;">#</th>
+                  <th style="text-align: center; white-space: nowrap;">Date</th>
+                  <th style="white-space: nowrap;">MIP No. &amp; WO</th>
                   <th style="white-space: nowrap;">Part Description</th>
-                  <th style="white-space: nowrap;">Process / Stage &amp; Shift</th>
+                  <th style="white-space: nowrap;">Process &amp; Shift</th>
                   <th style="text-align: center; white-space: nowrap;">Target</th>
                   <th style="text-align: center; white-space: nowrap;">OK Qty</th>
                   <th style="text-align: center; white-space: nowrap;">Rework</th>
                   <th style="text-align: center; white-space: nowrap;">Rejected</th>
-                  <th style="white-space: nowrap;">Operator &amp; Status</th>
+                  <th style="white-space: nowrap;">Operator</th>
                   <th style="text-align: center; white-space: nowrap;">Action</th>
                 </tr>
               </thead>
               <tbody id="prdTableBody">
-                <?php $sr = 1; ?>
-                <?php foreach ($productionList as $item): ?>
-                  <tr data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                      data-prd_no="<?php echo htmlspecialchars($item['prd_no']); ?>"
-                      data-prd_date="<?php echo htmlspecialchars($item['prd_date']); ?>"
-                      data-shift="<?php echo htmlspecialchars($item['shift']); ?>"
-                      data-part_code="<?php echo htmlspecialchars($item['part_code']); ?>"
-                      data-part_name="<?php echo htmlspecialchars($item['part_name']); ?>"
-                      data-process_name="<?php echo htmlspecialchars($item['process_name']); ?>"
-                      data-work_order="<?php echo htmlspecialchars($item['work_order']); ?>"
-                      data-machine_no="<?php echo htmlspecialchars($item['machine_no']); ?>"
-                      data-operator_name="<?php echo htmlspecialchars($item['operator_name']); ?>"
-                      data-supervisor_name="<?php echo htmlspecialchars($item['supervisor_name']); ?>"
-                      data-target_qty="<?php echo htmlspecialchars($item['target_qty']); ?>"
-                      data-ok_qty="<?php echo htmlspecialchars($item['ok_qty']); ?>"
-                      data-rework_qty="<?php echo htmlspecialchars($item['rework_qty'] ?? 0); ?>"
-                      data-rejected_qty="<?php echo htmlspecialchars($item['rejected_qty']); ?>"
-                      data-rejection_reason="<?php echo htmlspecialchars($item['rejection_reason']); ?>"
-                      data-uom="<?php echo htmlspecialchars($item['uom']); ?>"
-                      data-status="<?php echo htmlspecialchars($item['status']); ?>"
-                      data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
-                    <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $sr++; ?></td>
-                    <td style="white-space: nowrap;">
-                      <strong><?php echo htmlspecialchars($item['part_code']); ?></strong> - <?php echo htmlspecialchars($item['part_name']); ?>
-                    </td>
-                    <td style="white-space: nowrap;">
-                      <?php echo htmlspecialchars($item['process_name']); ?>
-                      <?php 
-                        $shShort = explode('(', $item['shift'])[0];
-                        $shTrim = trim($shShort);
-                        $shCls = stripos($shTrim, 'Morning') !== false ? 'shift-morning' : (stripos($shTrim, 'Evening') !== false ? 'shift-evening' : 'shift-night');
-                      ?>
-                      <br><span class="shift-tag <?php echo $shCls; ?>" style="font-size: 0.7rem; padding: 1px 6px; margin-top: 3px; display: inline-block;"><?php echo htmlspecialchars($shTrim); ?></span>
-                    </td>
-                    <td style="text-align: center; font-variant-numeric: tabular-nums;"><?php echo formatCleanNum($item['target_qty']); ?></td>
-                    <td style="text-align: center; font-variant-numeric: tabular-nums;">
-                      <strong style="color: #059669;"><?php echo formatCleanNum($item['ok_qty']); ?></strong>
-                    </td>
-                    <td style="text-align: center; font-variant-numeric: tabular-nums;">
-                      <?php if (floatval($item['rework_qty'] ?? 0) > 0): ?>
-                        <strong style="color: #d97706;"><?php echo formatCleanNum($item['rework_qty']); ?></strong>
-                      <?php else: ?>
-                        <span style="color: #94a3b8;">-</span>
-                      <?php endif; ?>
-                    </td>
-                    <td style="text-align: center; font-variant-numeric: tabular-nums;">
-                      <?php if (floatval($item['rejected_qty']) > 0): ?>
-                        <strong style="color: #dc2626;"><?php echo formatCleanNum($item['rejected_qty']); ?></strong>
-                      <?php else: ?>
-                        <span style="color: #94a3b8;">-</span>
-                      <?php endif; ?>
-                    </td>
-                    <td style="white-space: nowrap;">
-                      <?php echo htmlspecialchars($item['operator_name']); ?>
-                      <br>
-                      <?php if ($item['status'] === 'Completed'): ?>
-                        <span class="tag tag-completed" style="margin-top: 3px; display: inline-block;">Completed</span>
-                      <?php elseif ($item['status'] === 'In Progress'): ?>
-                        <span class="tag tag-in-progress" style="margin-top: 3px; display: inline-block;">In Progress</span>
-                      <?php else: ?>
-                        <span class="tag" style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a; margin-top: 3px; display: inline-block;">On Hold</span>
-                      <?php endif; ?>
-                    </td>
-                    <td style="text-align: center;">
-                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; min-width: 110px;">
-                        <button type="button" class="btn-view" title="View Details">View</button>
-                        <button type="button" class="btn-print" title="Print Production Slip">Print</button>
-                        <button type="button" class="btn-edit" title="Edit Entry">Edit</button>
-                        <button type="button" class="btn-delete" title="Delete Entry">Delete</button>
-                      </div>
+                <?php if (empty($productionList)): ?>
+                  <tr id="emptyTableRow">
+                    <td colspan="11" style="text-align: center; padding: 40px 20px; color: var(--text-sub);">
+                      No production entries found. Click <strong>+ Log Production</strong> to record shop-floor output.
                     </td>
                   </tr>
-                <?php endforeach; ?>
+                <?php else: ?>
+                  <?php $sr = 1; ?>
+                  <?php foreach ($productionList as $item): ?>
+                    <tr data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                        data-mip_no="<?php echo htmlspecialchars($item['mip_no'] ?? ''); ?>"
+                        data-work_order="<?php echo htmlspecialchars($item['work_order'] ?? ''); ?>"
+                        data-part_code="<?php echo htmlspecialchars($item['part_code']); ?>"
+                        data-part_name="<?php echo htmlspecialchars($item['part_name']); ?>"
+                        data-department="<?php echo htmlspecialchars($item['department'] ?? ''); ?>"
+                        data-received_by="<?php echo htmlspecialchars($item['received_by'] ?? ''); ?>"
+                        data-process_name="<?php echo htmlspecialchars($item['process_name']); ?>"
+                        data-shift="<?php echo htmlspecialchars($item['shift']); ?>"
+                        data-target_qty="<?php echo htmlspecialchars($item['target_qty']); ?>"
+                        data-ok_qty="<?php echo htmlspecialchars($item['ok_qty']); ?>"
+                        data-rework_qty="<?php echo htmlspecialchars($item['rework_qty'] ?? 0); ?>"
+                        data-rejected_qty="<?php echo htmlspecialchars($item['rejected_qty'] ?? 0); ?>"
+                        data-operator_name="<?php echo htmlspecialchars($item['operator_name']); ?>"
+                        data-uom="<?php echo htmlspecialchars($item['uom'] ?? 'PCS'); ?>"
+                        data-status="<?php echo htmlspecialchars($item['status'] ?? 'Completed'); ?>"
+                        data-created_at="<?php echo !empty($item['created_at']) ? date('Y-m-d', strtotime($item['created_at'])) : date('Y-m-d'); ?>">
+                      <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $sr++; ?></td>
+                      <td style="white-space: nowrap; text-align: center; font-size: 0.85rem; font-weight: 600; color: #475569;">
+                        <?php echo !empty($item['created_at']) ? date('d-m-Y', strtotime($item['created_at'])) : date('d-m-Y'); ?>
+                      </td>
+                      <td style="white-space: nowrap;">
+                        <strong style="color: #1e293b;"><?php echo htmlspecialchars($item['mip_no'] ?: '-'); ?></strong><br>
+                        <span style="font-size: 0.75rem; color: var(--text-sub);"><?php echo htmlspecialchars($item['work_order'] ?: '-'); ?></span>
+                      </td>
+                      <td style="white-space: nowrap;">
+                        <strong><?php echo htmlspecialchars($item['part_code']); ?></strong> - <?php echo htmlspecialchars($item['part_name']); ?>
+                      </td>
+                      <td style="white-space: nowrap;">
+                        <span style="font-weight: 500;"><?php echo htmlspecialchars($item['process_name']); ?></span><br>
+                        <span class="shift-tag shift-a" style="font-size: 0.7rem; padding: 1px 6px; margin-top: 3px; display: inline-block;">
+                          <?php echo htmlspecialchars($item['shift']); ?>
+                        </span>
+                      </td>
+                      <td style="text-align: center; font-variant-numeric: tabular-nums;"><?php echo formatCleanNum($item['target_qty']); ?></td>
+                      <td style="text-align: center; font-variant-numeric: tabular-nums;">
+                        <strong style="color: #059669;"><?php echo formatCleanNum($item['ok_qty']); ?></strong>
+                      </td>
+                      <td style="text-align: center; font-variant-numeric: tabular-nums;">
+                        <?php if (floatval($item['rework_qty'] ?? 0) > 0): ?>
+                          <strong style="color: #d97706;"><?php echo formatCleanNum($item['rework_qty']); ?></strong>
+                        <?php else: ?>
+                          <span style="color: #94a3b8;">-</span>
+                        <?php endif; ?>
+                      </td>
+                      <td style="text-align: center; font-variant-numeric: tabular-nums;">
+                        <?php if (floatval($item['rejected_qty'] ?? 0) > 0): ?>
+                          <strong style="color: #dc2626;"><?php echo formatCleanNum($item['rejected_qty']); ?></strong>
+                        <?php else: ?>
+                          <span style="color: #94a3b8;">-</span>
+                        <?php endif; ?>
+                      </td>
+                      <td style="white-space: nowrap;">
+                        <span style="font-weight: 600; color: #1e293b;"><?php echo htmlspecialchars($item['operator_name']); ?></span>
+                        <?php if (!empty($item['received_by'])): ?>
+                          <br><span style="font-size: 0.72rem; color: var(--text-sub);">Rec: <?php echo htmlspecialchars($item['received_by']); ?></span>
+                        <?php endif; ?>
+                      </td>
+                      <td style="text-align: center;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; min-width: 110px;">
+                          <button type="button" class="btn-view" title="View Details">View</button>
+                          <button type="button" class="btn-print" title="Print Production Slip">Print</button>
+                          <button type="button" class="btn-edit" title="Edit Entry">Edit</button>
+                          <button type="button" class="btn-delete" title="Delete Entry">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php endif; ?>
               </tbody>
             </table>
           </div>
@@ -903,6 +825,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                       <th style="padding: 7px 10px;">Part Code &amp; Name</th>
                       <th style="padding: 7px 10px; text-align: center;">Issued Qty</th>
                       <th style="padding: 7px 10px;">Floor / Dept</th>
+                      <th style="padding: 7px 10px;">Received By</th>
                       <th style="padding: 7px 10px; text-align: center;">Issue Date</th>
                     </tr>
                   </thead>
@@ -913,6 +836,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                       <td style="padding: 8px 10px;" id="tblMipPart">-</td>
                       <td style="padding: 8px 10px; text-align: center;"><strong id="tblMipQty" style="color: #059669;">-</strong></td>
                       <td style="padding: 8px 10px;" id="tblMipDept">-</td>
+                      <td style="padding: 8px 10px;" id="tblMipReceivedBy">-</td>
                       <td style="padding: 8px 10px; text-align: center;" id="tblMipDate">-</td>
                     </tr>
                   </tbody>
@@ -957,17 +881,13 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
             </div>
 
             <!-- Auto-generated & Synced Hidden Fields -->
-            <input type="hidden" id="inputPrdNo" value="<?php echo htmlspecialchars($nextPrdNo); ?>">
-            <input type="hidden" id="inputPrdDate" value="<?php echo date('Y-m-d'); ?>">
             <input type="hidden" id="inputWorkOrder" value="">
             <input type="hidden" id="inputPartCode" value="">
             <input type="hidden" id="inputPartName" value="">
             <input type="hidden" id="inputPartSelect" value="">
-            <input type="hidden" id="inputMachine" value="">
-            <input type="hidden" id="inputSupervisor" value="">
-            <input type="hidden" id="inputRejectionReason" value="None">
+            <input type="hidden" id="inputDepartment" value="">
+            <input type="hidden" id="inputReceivedBy" value="">
             <input type="hidden" id="inputStatus" value="Completed">
-            <input type="hidden" id="inputRemarks" value="">
 
             <!-- 2. Process / Stage -->
             <div class="form-group">
@@ -1075,9 +995,9 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         <!-- Header summary pill -->
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);">
           <div>
-            <div style="font-size:1.15rem; font-weight:700; color:var(--text-main);" id="vPrdNo">PRD-2026-001</div>
+            <div style="font-size:1.15rem; font-weight:700; color:var(--text-main);" id="vModalHeaderTitle">Production Entry Details</div>
             <div style="font-size:0.8rem; color:var(--text-sub); margin-top:2px;">
-              Date: <strong id="vPrdDate">25-09-2026</strong> &bull; <span id="vShift" class="shift-tag shift-a">Shift A</span>
+              Date: <strong id="vCreateDate" style="color:var(--text-main);">-</strong> &nbsp;|&nbsp; Shift: <span id="vShift" class="shift-tag shift-a">Shift A</span>
             </div>
           </div>
           <div id="vStatusTag">
@@ -1089,19 +1009,19 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin-bottom: 18px; font-size: 0.85rem;">
           <div>
             <div style="color:var(--text-sub); font-size:0.72rem; text-transform:uppercase; font-weight:600;">Part Code & Name</div>
-            <div style="font-weight:600; color:var(--text-main); margin-top:3px;" id="vPartDesc">P1001 - Front Mounting Assembly</div>
+            <div style="font-weight:600; color:var(--text-main); margin-top:3px;" id="vPartDesc">-</div>
           </div>
           <div>
-            <div style="color:var(--text-sub); font-size:0.72rem; text-transform:uppercase; font-weight:600;">Work Order No.</div>
-            <div style="font-weight:600; color:var(--text-main); margin-top:3px;" id="vWorkOrder">WO-2026-101</div>
+            <div style="color:var(--text-sub); font-size:0.72rem; text-transform:uppercase; font-weight:600;">MIP Slip / Work Order</div>
+            <div style="font-weight:600; color:var(--text-main); margin-top:3px;" id="vWorkOrder">-</div>
           </div>
           <div>
-            <div style="color:var(--text-sub); font-size:0.72rem; text-transform:uppercase; font-weight:600;">Process & Machine</div>
-            <div style="font-weight:500; color:var(--text-main); margin-top:3px;" id="vProcessMachine">Stamping & Press (Press-01)</div>
+            <div style="color:var(--text-sub); font-size:0.72rem; text-transform:uppercase; font-weight:600;">Process / Stage</div>
+            <div style="font-weight:500; color:var(--text-main); margin-top:3px;" id="vProcessMachine">-</div>
           </div>
           <div>
-            <div style="color:var(--text-sub); font-size:0.72rem; text-transform:uppercase; font-weight:600;">Operator & Supervisor</div>
-            <div style="font-weight:500; color:var(--text-main); margin-top:3px;" id="vPersonnel">Ramesh Kumar / Amit Sharma</div>
+            <div style="color:var(--text-sub); font-size:0.72rem; text-transform:uppercase; font-weight:600;">Operator / Technician</div>
+            <div style="font-weight:500; color:var(--text-main); margin-top:3px;" id="vPersonnel">-</div>
           </div>
         </div>
 
@@ -1109,17 +1029,17 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         <div style="border: 1px solid var(--border); border-radius: 6px; padding: 14px; background: #fafafa; margin-bottom: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <span style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #334155;">Production Output Metrics</span>
-            <span style="font-size: 0.8rem; font-weight: 700; color: #059669;" id="vYieldRate">98.3% Yield</span>
+            <span style="font-size: 0.8rem; font-weight: 700; color: #059669;" id="vYieldRate">100% Yield</span>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; text-align: center;">
             <div style="background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
               <div style="font-size: 0.68rem; color: #64748b; font-weight: 600;">TARGET</div>
-              <div style="font-size: 1rem; font-weight: 700; color: #0f172a;" id="vTargetQty">120</div>
+              <div style="font-size: 1rem; font-weight: 700; color: #0f172a;" id="vTargetQty">0</div>
             </div>
             <div style="background: #ecfdf5; padding: 8px; border-radius: 4px; border: 1px solid #a7f3d0;">
               <div style="font-size: 0.68rem; color: #059669; font-weight: 600;">PRODUCED OK</div>
-              <div style="font-size: 1rem; font-weight: 700; color: #059669;" id="vOkQty">118</div>
+              <div style="font-size: 1rem; font-weight: 700; color: #059669;" id="vOkQty">0</div>
             </div>
             <div style="background: #fffbeb; padding: 8px; border-radius: 4px; border: 1px solid #fde68a;">
               <div style="font-size: 0.68rem; color: #d97706; font-weight: 600;">REWORK</div>
@@ -1127,23 +1047,23 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
             </div>
             <div style="background: #fef2f2; padding: 8px; border-radius: 4px; border: 1px solid #fecaca;">
               <div style="font-size: 0.68rem; color: #dc2626; font-weight: 600;">REJECTED</div>
-              <div style="font-size: 1rem; font-weight: 700; color: #dc2626;" id="vRejectedQty">2</div>
+              <div style="font-size: 1rem; font-weight: 700; color: #dc2626;" id="vRejectedQty">0</div>
             </div>
             <div style="background: #eff6ff; padding: 8px; border-radius: 4px; border: 1px solid #bfdbfe;">
               <div style="font-size: 0.68rem; color: #2563eb; font-weight: 600;">ACHIEVED</div>
-              <div style="font-size: 1rem; font-weight: 700; color: #2563eb;" id="vAchievedRate">98.3%</div>
+              <div style="font-size: 1rem; font-weight: 700; color: #2563eb;" id="vAchievedRate">0%</div>
             </div>
           </div>
 
           <div class="progress-track">
-            <div class="progress-fill" id="vProgressBar" style="width: 98.3%;"></div>
+            <div class="progress-fill" id="vProgressBar" style="width: 100%;"></div>
           </div>
         </div>
 
-        <!-- Defect Reason & Remarks -->
-        <div style="font-size: 0.82rem; color: #475569; line-height: 1.5; background: #fff; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px;">
-          <div><strong>Rejection Reason:</strong> <span id="vRejectionReason">Surface Burr / Rough Edge</span></div>
-          <div style="margin-top: 4px;"><strong>Remarks:</strong> <span id="vRemarksText">Smooth run on line-1</span></div>
+        <!-- Material Issue Info -->
+        <div style="font-size: 0.82rem; color: #475569; line-height: 1.6; background: #fff; padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div><strong>Floor / Dept:</strong> <span id="vDepartment">-</span></div>
+          <div><strong>Material Received By:</strong> <span id="vReceivedBy">-</span></div>
         </div>
 
         <!-- Child Parts / BOM Breakdown -->
@@ -1385,9 +1305,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         if (typeof clearMipScan === 'function') {
           clearMipScan();
         }
-        const rowsCount = prdTableBody.querySelectorAll('tr:not(#emptyTableRow)').length;
-        document.getElementById('inputPrdNo').value = `PRD-<?php echo date('Y'); ?>-${(rowsCount + 1).toString().padStart(3, '0')}`;
-        document.getElementById('inputPrdDate').value = new Date().toISOString().split('T')[0];
         document.getElementById('inputShift').value = '';
         document.getElementById('inputWorkOrder').value = '';
         if (document.getElementById('inputPartSelect')) {
@@ -1396,17 +1313,14 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         }
         if (document.getElementById('inputPartCode')) document.getElementById('inputPartCode').value = '';
         if (document.getElementById('inputPartName')) document.getElementById('inputPartName').value = '';
+        if (document.getElementById('inputDepartment')) document.getElementById('inputDepartment').value = '';
+        if (document.getElementById('inputReceivedBy')) document.getElementById('inputReceivedBy').value = '';
         document.getElementById('inputProcess').value = '';
-        document.getElementById('inputMachine').value = '';
         document.getElementById('inputOperator').value = '';
-        document.getElementById('inputSupervisor').value = '';
         document.getElementById('inputTargetQty').value = '';
         document.getElementById('inputOkQty').value = '';
         if (document.getElementById('inputReworkQty')) document.getElementById('inputReworkQty').value = '';
         document.getElementById('inputRejectedQty').value = '';
-        document.getElementById('inputRejectionReason').value = 'None';
-        document.getElementById('inputStatus').value = 'Completed';
-        document.getElementById('inputRemarks').value = '';
         updateLiveYieldCalculation();
         openModal('+ Log Production Entry');
         setTimeout(() => {
@@ -1437,12 +1351,16 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         if (tbody) tbody.innerHTML = '';
         const countBadge = document.getElementById('childPartsCountBadge');
         if (countBadge) countBadge.textContent = '0 Items';
+        const elRecBy = document.getElementById('tblMipReceivedBy');
+        if (elRecBy) elRecBy.textContent = '-';
         if (document.getElementById('inputPartSelect')) {
           document.getElementById('inputPartSelect').value = '';
           document.getElementById('inputPartSelect').setAttribute('data-name', '');
         }
         if (document.getElementById('inputPartCode')) document.getElementById('inputPartCode').value = '';
         if (document.getElementById('inputPartName')) document.getElementById('inputPartName').value = '';
+        if (document.getElementById('inputDepartment')) document.getElementById('inputDepartment').value = '';
+        if (document.getElementById('inputReceivedBy')) document.getElementById('inputReceivedBy').value = '';
       }
 
       function renderChildParts(match, issuedQty) {
@@ -1528,15 +1446,36 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         }
       }
 
-      function fetchScannedMip(code) {
+      async function fetchScannedMip(code) {
         const query = (code || '').trim().toLowerCase();
         if (!query) return;
 
         // Search in preloaded MIP list by issue_no or work_order
-        const match = availableMips.find(m => 
+        let match = availableMips.find(m => 
           (m.issue_no && m.issue_no.toLowerCase() === query) ||
           (m.work_order && m.work_order.toLowerCase() === query)
         );
+
+        // Fallback: If not found in preloaded list, fetch live from api/mip.php
+        if (!match) {
+          try {
+            const res = await fetch('api/mip.php');
+            const resJson = await res.json();
+            if (resJson.status === 'success' && Array.isArray(resJson.data)) {
+              resJson.data.forEach(item => {
+                if (!availableMips.find(m => m.issue_no === item.issue_no)) {
+                  availableMips.push(item);
+                }
+              });
+              match = availableMips.find(m => 
+                (m.issue_no && m.issue_no.toLowerCase() === query) ||
+                (m.work_order && m.work_order.toLowerCase() === query)
+              );
+            }
+          } catch (e) {
+            // ignore network errors
+          }
+        }
 
         const tblWrap = document.getElementById('fetchedMipTableWrap');
 
@@ -1558,6 +1497,12 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           }
           if (partCodeInput) partCodeInput.value = pCode;
           if (partNameInput) partNameInput.value = pName;
+          if (document.getElementById('inputDepartment')) {
+            document.getElementById('inputDepartment').value = match.department || '';
+          }
+          if (document.getElementById('inputReceivedBy')) {
+            document.getElementById('inputReceivedBy').value = match.received_by || '';
+          }
 
           // 3. Auto-fill Target Quantity from Issued Qty
           const qty = parseFloat(match.issued_qty || 0);
@@ -1577,6 +1522,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           const elPart = document.getElementById('tblMipPart');
           const elQty = document.getElementById('tblMipQty');
           const elDept = document.getElementById('tblMipDept');
+          const elReceivedBy = document.getElementById('tblMipReceivedBy');
           const elDate = document.getElementById('tblMipDate');
 
           if (elNo) elNo.textContent = match.issue_no;
@@ -1584,6 +1530,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           if (elPart) elPart.textContent = `${match.part_code} - ${match.part_name || ''}`;
           if (elQty) elQty.textContent = `${qty} ${match.uom || 'PCS'}`;
           if (elDept) elDept.textContent = match.department || '-';
+          if (elReceivedBy) elReceivedBy.textContent = match.received_by || '-';
           if (elDate) elDate.textContent = formatDateDMY(match.issue_date || '');
 
           // 6. Populate Child Parts Details Table
@@ -1628,60 +1575,59 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
 
       function populateRow(tr, data) {
         tr.setAttribute('data-id', data.id);
-        tr.setAttribute('data-prd_no', data.prd_no);
-        tr.setAttribute('data-prd_date', data.prd_date);
-        tr.setAttribute('data-shift', data.shift);
+        tr.setAttribute('data-mip_no', data.mip_no || '');
+        tr.setAttribute('data-work_order', data.work_order || '');
         tr.setAttribute('data-part_code', data.part_code);
         tr.setAttribute('data-part_name', data.part_name);
+        tr.setAttribute('data-department', data.department || '');
+        tr.setAttribute('data-received_by', data.received_by || '');
         tr.setAttribute('data-process_name', data.process_name);
-        tr.setAttribute('data-work_order', data.work_order);
-        tr.setAttribute('data-machine_no', data.machine_no || '');
-        tr.setAttribute('data-operator_name', data.operator_name || '');
-        tr.setAttribute('data-supervisor_name', data.supervisor_name || '');
+        tr.setAttribute('data-shift', data.shift);
         tr.setAttribute('data-target_qty', data.target_qty);
         tr.setAttribute('data-ok_qty', data.ok_qty);
         tr.setAttribute('data-rework_qty', data.rework_qty || 0);
-        tr.setAttribute('data-rejected_qty', data.rejected_qty);
-        tr.setAttribute('data-rejection_reason', data.rejection_reason || 'None');
-        tr.setAttribute('data-uom', data.uom);
-        tr.setAttribute('data-status', data.status);
-        tr.setAttribute('data-remarks', data.remarks || '');
-
-        const shiftShort = data.shift.split('(')[0].trim();
-        const shiftCls = getShiftClass(data.shift);
-
-        const statusTag = data.status === 'Completed'
-          ? '<span class="tag tag-completed">Completed</span>'
-          : (data.status === 'In Progress' 
-              ? '<span class="tag tag-in-progress">In Progress</span>' 
-              : '<span class="tag" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a;">On Hold</span>');
+        tr.setAttribute('data-rejected_qty', data.rejected_qty || 0);
+        tr.setAttribute('data-operator_name', data.operator_name || '');
+        tr.setAttribute('data-uom', data.uom || 'PCS');
+        tr.setAttribute('data-status', data.status || 'Completed');
+        tr.setAttribute('data-created_at', data.created_at ? data.created_at.substring(0, 10) : new Date().toISOString().substring(0, 10));
 
         const reworkCell = parseFloat(data.rework_qty || 0) > 0
-          ? `<span class="badge-rework">${formatNumber(data.rework_qty)}</span>`
-          : `<span class="badge-nil">-</span>`;
+          ? `<strong style="color: #d97706;">${formatNumber(data.rework_qty)}</strong>`
+          : `<span style="color: #94a3b8;">-</span>`;
 
-        const rejCell = parseFloat(data.rejected_qty) > 0
-          ? `<span class="badge-rej">${formatNumber(data.rejected_qty)}</span>`
-          : `<span class="badge-nil">-</span>`;
+        const rejCell = parseFloat(data.rejected_qty || 0) > 0
+          ? `<strong style="color: #dc2626;">${formatNumber(data.rejected_qty)}</strong>`
+          : `<span style="color: #94a3b8;">-</span>`;
+
+        const recByHtml = data.received_by ? `<br><span style="font-size: 0.72rem; color: var(--text-sub);">Rec: ${escapeHtml(data.received_by)}</span>` : '';
+        const createDateStr = data.created_at ? formatDateDMY(data.created_at) : formatDateDMY(new Date().toISOString());
 
         tr.innerHTML = `
           <td style="color: var(--text-sub); font-weight: 600; text-align: center;">1</td>
-          <td>
+          <td style="white-space: nowrap; text-align: center; font-size: 0.85rem; font-weight: 600; color: #475569;">
+            ${escapeHtml(createDateStr)}
+          </td>
+          <td style="white-space: nowrap;">
+            <strong style="color: #1e293b;">${escapeHtml(data.mip_no || '-')}</strong><br>
+            <span style="font-size: 0.75rem; color: var(--text-sub);">${escapeHtml(data.work_order || '-')}</span>
+          </td>
+          <td style="white-space: nowrap;">
             <strong>${escapeHtml(data.part_code)}</strong> - ${escapeHtml(data.part_name)}
           </td>
-          <td>
+          <td style="white-space: nowrap;">
             <span style="font-weight: 500;">${escapeHtml(data.process_name)}</span><br>
-            <span class="shift-tag ${shiftCls}" style="font-size: 0.7rem; padding: 1px 6px; margin-top: 3px; display: inline-block;">${escapeHtml(shiftShort)}</span>
+            <span class="shift-tag shift-a" style="font-size: 0.7rem; padding: 1px 6px; margin-top: 3px; display: inline-block;">${escapeHtml(data.shift)}</span>
           </td>
           <td style="text-align: center; font-variant-numeric: tabular-nums;">${formatNumber(data.target_qty)}</td>
-          <td style="text-align: center;">
-            <span class="badge-ok">${formatNumber(data.ok_qty)} ${escapeHtml(data.uom)}</span>
+          <td style="text-align: center; font-variant-numeric: tabular-nums;">
+            <strong style="color: #059669;">${formatNumber(data.ok_qty)}</strong>
           </td>
-          <td style="text-align: center;">${reworkCell}</td>
-          <td style="text-align: center;">${rejCell}</td>
-          <td>
-            ${escapeHtml(data.operator_name || '-')}<br>
-            <span style="margin-top: 3px; display: inline-block;">${statusTag}</span>
+          <td style="text-align: center; font-variant-numeric: tabular-nums;">${reworkCell}</td>
+          <td style="text-align: center; font-variant-numeric: tabular-nums;">${rejCell}</td>
+          <td style="white-space: nowrap;">
+            <span style="font-weight: 600; color: #1e293b;">${escapeHtml(data.operator_name || '-')}</span>
+            ${recByHtml}
           </td>
           <td style="text-align: center;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; min-width: 110px;">
@@ -1694,13 +1640,12 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         `;
       }
 
-      // Submit Form (Add / Edit)
-      prdForm.addEventListener('submit', (e) => {
+      // Submit Form (Add / Edit via API to Database)
+      prdForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const id = editPrdId.value;
-        const prdNo = document.getElementById('inputPrdNo').value.trim();
-        const prdDate = document.getElementById('inputPrdDate').value.trim();
+        const mipNo = (document.getElementById('scanMipInput') ? document.getElementById('scanMipInput').value.trim() : '');
         const shift = document.getElementById('inputShift').value;
         const workOrder = document.getElementById('inputWorkOrder').value.trim();
         const partSelect = document.getElementById('inputPartSelect');
@@ -1709,23 +1654,17 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         const partName = (document.getElementById('inputPartName') ? document.getElementById('inputPartName').value.trim() : '') ||
                          (partSelect ? (partSelect.getAttribute('data-name') || '') : '') ||
                          (partsCatalog[partCode] ? partsCatalog[partCode].part_name : partCode);
+        const department = (document.getElementById('inputDepartment') ? document.getElementById('inputDepartment').value.trim() : '');
+        const receivedBy = (document.getElementById('inputReceivedBy') ? document.getElementById('inputReceivedBy').value.trim() : '');
         const processName = document.getElementById('inputProcess').value;
-        const machineNo = document.getElementById('inputMachine').value.trim();
-        const operatorName = document.getElementById('inputOperator').value.trim();
-        const supervisorName = document.getElementById('inputSupervisor').value.trim();
         const targetQty = parseFloat(document.getElementById('inputTargetQty').value || 0);
         const okQty = parseFloat(document.getElementById('inputOkQty').value || 0);
         const reworkQty = parseFloat(document.getElementById('inputReworkQty') ? document.getElementById('inputReworkQty').value || 0 : 0);
         const rejectedQty = parseFloat(document.getElementById('inputRejectedQty').value || 0);
-        const rejectionReason = document.getElementById('inputRejectionReason').value;
-        const uom = document.getElementById('inputUom').value;
-        const status = document.getElementById('inputStatus').value;
-        const remarks = document.getElementById('inputRemarks').value.trim();
+        const operatorName = document.getElementById('inputOperator').value.trim();
+        const uom = document.getElementById('inputUom').value || 'PCS';
+        const status = document.getElementById('inputStatus').value || 'Completed';
 
-        if (!shift) {
-          showToast('Please select a Shift.', 'error');
-          return;
-        }
         if (!partCode) {
           showToast('Please scan an MIP slip to load part details.', 'error');
           return;
@@ -1734,82 +1673,118 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           showToast('Please select a Process / Stage.', 'error');
           return;
         }
+        if (!shift) {
+          showToast('Please select a Shift.', 'error');
+          return;
+        }
+        if (!operatorName) {
+          showToast('Please enter Operator / Technician name.', 'error');
+          return;
+        }
 
-        const dataObj = {
-          id: id || Date.now(),
-          prd_no: prdNo,
-          prd_date: prdDate,
-          shift: shift,
+        const payload = {
+          action: id ? 'update' : 'create',
+          id: id,
+          mip_no: mipNo,
+          work_order: workOrder,
           part_code: partCode,
           part_name: partName,
+          department: department,
+          received_by: receivedBy,
           process_name: processName,
-          work_order: workOrder,
-          machine_no: machineNo,
-          operator_name: operatorName,
-          supervisor_name: supervisorName,
+          shift: shift,
           target_qty: targetQty,
           ok_qty: okQty,
           rework_qty: reworkQty,
           rejected_qty: rejectedQty,
-          rejection_reason: rejectionReason,
+          operator_name: operatorName,
           uom: uom,
-          status: status,
-          remarks: remarks
+          status: status
         };
 
-        if (id) {
-          // Edit existing row
-          const row = prdTableBody.querySelector(`tr[data-id="${id}"]`);
-          if (row) {
-            populateRow(row, dataObj);
-            showToast('Production entry updated successfully!', 'success');
+        const submitBtn = document.getElementById('savePrdSubmitBtn');
+        const origText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+
+        try {
+          const res = await fetch('api/production.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const resJson = await res.json();
+
+          if (!resJson.success) {
+            showToast(resJson.message || 'Failed to save production entry', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = origText;
+            return;
           }
-        } else {
-          // Add new row
-          const emptyRow = document.getElementById('emptyTableRow');
-          if (emptyRow) emptyRow.remove();
 
-          const tr = document.createElement('tr');
-          populateRow(tr, dataObj);
-          prdTableBody.insertBefore(tr, prdTableBody.firstChild);
-          showToast('Production entry logged successfully!', 'success');
+          const savedData = resJson.data;
+
+          if (id) {
+            // Edit existing row
+            const row = prdTableBody.querySelector(`tr[data-id="${id}"]`);
+            if (row) {
+              populateRow(row, savedData);
+              showToast('Production entry updated successfully in database!', 'success');
+            }
+          } else {
+            // Add new row
+            const emptyRow = document.getElementById('emptyTableRow');
+            if (emptyRow) emptyRow.remove();
+
+            const tr = document.createElement('tr');
+            populateRow(tr, savedData);
+            prdTableBody.insertBefore(tr, prdTableBody.firstChild);
+            showToast('Production entry logged & stored in database!', 'success');
+          }
+
+          reindexRows();
+          updateCounters();
+          closeModal();
+        } catch (err) {
+          showToast('Network error while saving production entry.', 'error');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = origText;
         }
-
-        reindexRows();
-        updateCounters();
-        closeModal();
       });
 
       // View Modal
       function getRowData(row) {
         return {
           id: row.getAttribute('data-id') || '',
-          prdNo: row.getAttribute('data-prd_no') || '',
-          prdDate: row.getAttribute('data-prd_date') || '',
+          mipNo: row.getAttribute('data-mip_no') || '',
           shift: row.getAttribute('data-shift') || '',
           partCode: row.getAttribute('data-part_code') || '',
           partName: row.getAttribute('data-part_name') || '',
           processName: row.getAttribute('data-process_name') || '',
           workOrder: row.getAttribute('data-work_order') || '',
-          machineNo: row.getAttribute('data-machine_no') || '',
+          department: row.getAttribute('data-department') || '',
+          receivedBy: row.getAttribute('data-received_by') || '',
           operatorName: row.getAttribute('data-operator_name') || '',
-          supervisorName: row.getAttribute('data-supervisor_name') || '',
           targetQty: parseFloat(row.getAttribute('data-target_qty') || 0),
           okQty: parseFloat(row.getAttribute('data-ok_qty') || 0),
+          reworkQty: parseFloat(row.getAttribute('data-rework_qty') || 0),
           rejectedQty: parseFloat(row.getAttribute('data-rejected_qty') || 0),
-          rejectionReason: row.getAttribute('data-rejection_reason') || 'None',
           uom: row.getAttribute('data-uom') || 'PCS',
           status: row.getAttribute('data-status') || 'Completed',
-          remarks: row.getAttribute('data-remarks') || ''
+          createdAt: row.getAttribute('data-created_at') || ''
         };
       }
 
       function openViewModal(data) {
         currentViewingData = data;
-        document.getElementById('viewPrdModalTitle').textContent = `Production Run Details - ${data.prdNo}`;
-        document.getElementById('vPrdNo').textContent = data.prdNo;
-        document.getElementById('vPrdDate').textContent = formatDateDMY(data.prdDate);
+        document.getElementById('viewPrdModalTitle').textContent = `Production Entry Details #${data.id}`;
         
+        const createDateEl = document.getElementById('vCreateDate');
+        if (createDateEl) {
+          createDateEl.textContent = data.createdAt ? formatDateDMY(data.createdAt) : formatDateDMY(new Date().toISOString());
+        }
+
         const shiftTag = document.getElementById('vShift');
         shiftTag.className = `shift-tag ${getShiftClass(data.shift)}`;
         shiftTag.textContent = data.shift;
@@ -1822,23 +1797,29 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         document.getElementById('vStatusTag').innerHTML = statusTag;
 
         document.getElementById('vPartDesc').textContent = `${data.partCode} - ${data.partName}`;
-        document.getElementById('vWorkOrder').textContent = data.workOrder || '-';
-        document.getElementById('vProcessMachine').textContent = `${data.processName} (${data.machineNo || 'Line-General'})`;
-        document.getElementById('vPersonnel').textContent = `${data.operatorName || '-'} / ${data.supervisorName || '-'}`;
+        document.getElementById('vWorkOrder').textContent = `${data.mipNo ? data.mipNo + ' / ' : ''}${data.workOrder || '-'}`;
+        document.getElementById('vProcessMachine').textContent = data.processName;
+        document.getElementById('vPersonnel').textContent = data.operatorName || '-';
 
-        const totalInsp = data.okQty + data.rejectedQty;
+        if (document.getElementById('vDepartment')) {
+          document.getElementById('vDepartment').textContent = data.department || '-';
+        }
+        if (document.getElementById('vReceivedBy')) {
+          document.getElementById('vReceivedBy').textContent = data.receivedBy || '-';
+        }
+
+        const totalInsp = data.okQty + (data.reworkQty || 0) + data.rejectedQty;
         const yieldPercent = totalInsp > 0 ? ((data.okQty / totalInsp) * 100).toFixed(1) : 100.0;
         const achPercent = data.targetQty > 0 ? Math.round((data.okQty / data.targetQty) * 100) : 0;
 
         document.getElementById('vYieldRate').textContent = `${yieldPercent}% Yield`;
         document.getElementById('vTargetQty').textContent = `${formatNumber(data.targetQty)} ${data.uom}`;
         document.getElementById('vOkQty').textContent = `${formatNumber(data.okQty)} ${data.uom}`;
+        document.getElementById('vReworkQty').textContent = `${formatNumber(data.reworkQty || 0)} ${data.uom}`;
         document.getElementById('vRejectedQty').textContent = `${formatNumber(data.rejectedQty)} ${data.uom}`;
         document.getElementById('vAchievedRate').textContent = `${achPercent}%`;
 
         document.getElementById('vProgressBar').style.width = `${Math.min(yieldPercent, 100)}%`;
-        document.getElementById('vRejectionReason').textContent = data.rejectionReason || 'None';
-        document.getElementById('vRemarksText').textContent = data.remarks || 'None';
 
         // Child parts for viewed part
         const vCpBody = document.getElementById('vChildPartsBody');
@@ -1900,7 +1881,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           <html>
           <head>
             <meta charset="UTF-8">
-            <title>DPR_Slip_${escapeHtml(data.prdNo)}</title>
+            <title>DPR_Slip_${escapeHtml(data.id || data.mipNo || 'Entry')}</title>
             <style>
               @page {
                 size: A4 portrait;
@@ -2051,8 +2032,8 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                 <div class="doc-title">Daily Production Report (DPR) / Output Slip</div>
               </div>
               <div class="slip-badge">
-                <div class="slip-no">PRD NO: ${escapeHtml(data.prdNo)}</div>
-                <div class="slip-date">Date: ${formatDateDMY(data.prdDate)} &bull; ${escapeHtml(data.shift)}</div>
+                <div class="slip-no">ENTRY ID: #${escapeHtml(data.id || '-')}</div>
+                <div class="slip-date">Date: <strong>${escapeHtml(data.createdAt ? formatDateDMY(data.createdAt) : formatDateDMY(new Date().toISOString()))}</strong> &nbsp;|&nbsp; Shift: ${escapeHtml(data.shift)}</div>
               </div>
             </div>
 
@@ -2062,32 +2043,32 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                 <td class="val" colspan="3"><strong>${escapeHtml(data.partCode)}</strong> - ${escapeHtml(data.partName)}</td>
               </tr>
               <tr>
+                <td class="lbl">MIP Slip No:</td>
+                <td class="val"><strong>${escapeHtml(data.mipNo || '-')}</strong></td>
                 <td class="lbl">Work Order No:</td>
-                <td class="val"><strong>${escapeHtml(data.workOrder)}</strong></td>
-                <td class="lbl">Stage / Process:</td>
-                <td class="val"><strong>${escapeHtml(data.processName)}</strong></td>
+                <td class="val"><strong>${escapeHtml(data.workOrder || '-')}</strong></td>
               </tr>
               <tr>
-                <td class="lbl">Machine / Line:</td>
-                <td class="val">${escapeHtml(data.machineNo || 'Line-General')}</td>
+                <td class="lbl">Stage / Process:</td>
+                <td class="val"><strong>${escapeHtml(data.processName)}</strong></td>
                 <td class="lbl">Production Shift:</td>
                 <td class="val">${escapeHtml(data.shift)}</td>
               </tr>
               <tr>
-                <td class="lbl">Operator / Worker:</td>
+                <td class="lbl">Floor / Department:</td>
+                <td class="val">${escapeHtml(data.department || '-')}</td>
+                <td class="lbl">Material Received By:</td>
+                <td class="val"><strong>${escapeHtml(data.receivedBy || '-')}</strong></td>
+              </tr>
+              <tr>
+                <td class="lbl">Create Date:</td>
+                <td class="val"><strong>${escapeHtml(data.createdAt ? formatDateDMY(data.createdAt) : formatDateDMY(new Date().toISOString()))}</strong></td>
+                <td class="lbl">Operator / Technician:</td>
                 <td class="val"><strong>${escapeHtml(data.operatorName || '-')}</strong></td>
-                <td class="lbl">Supervisor / In-Charge:</td>
-                <td class="val">${escapeHtml(data.supervisorName || '-')}</td>
               </tr>
               <tr>
-                <td class="lbl">Rejection Reason:</td>
-                <td class="val">${escapeHtml(data.rejectionReason || 'None')}</td>
-                <td class="lbl">Run Status:</td>
-                <td class="val"><strong>${escapeHtml(data.status)}</strong></td>
-              </tr>
-              <tr>
-                <td class="lbl">Remarks:</td>
-                <td class="val" colspan="3">${escapeHtml(data.remarks || 'None')}</td>
+                <td class="lbl">Production Status:</td>
+                <td class="val" colspan="3"><strong>${escapeHtml(data.status)}</strong></td>
               </tr>
             </table>
 
@@ -2198,7 +2179,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         // Edit
         if (e.target.classList.contains('btn-edit')) {
           editPrdId.value = row.getAttribute('data-id');
-          document.getElementById('inputPrdNo').value = row.getAttribute('data-prd_no') || '';
           const shiftVal = row.getAttribute('data-shift') || '';
           const shiftEl = document.getElementById('inputShift');
           shiftEl.value = '';
@@ -2208,63 +2188,117 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
               break;
             }
           }
+          const mipNoVal = row.getAttribute('data-mip_no') || '';
+          if (scanMipInput) scanMipInput.value = mipNoVal;
           document.getElementById('inputWorkOrder').value = row.getAttribute('data-work_order') || '';
+          const pCode = row.getAttribute('data-part_code') || '';
+          const pName = row.getAttribute('data-part_name') || '';
           if (document.getElementById('inputPartSelect')) {
-            document.getElementById('inputPartSelect').value = row.getAttribute('data-part_code') || '';
-            document.getElementById('inputPartSelect').setAttribute('data-name', row.getAttribute('data-part_name') || '');
+            document.getElementById('inputPartSelect').value = pCode;
+            document.getElementById('inputPartSelect').setAttribute('data-name', pName);
           }
-          if (document.getElementById('inputPartCode')) document.getElementById('inputPartCode').value = row.getAttribute('data-part_code') || '';
-          if (document.getElementById('inputPartName')) document.getElementById('inputPartName').value = row.getAttribute('data-part_name') || '';
+          if (document.getElementById('inputPartCode')) document.getElementById('inputPartCode').value = pCode;
+          if (document.getElementById('inputPartName')) document.getElementById('inputPartName').value = pName;
+          if (document.getElementById('inputDepartment')) document.getElementById('inputDepartment').value = row.getAttribute('data-department') || '';
+          if (document.getElementById('inputReceivedBy')) document.getElementById('inputReceivedBy').value = row.getAttribute('data-received_by') || '';
           document.getElementById('inputProcess').value = row.getAttribute('data-process_name') || '';
-          document.getElementById('inputMachine').value = row.getAttribute('data-machine_no') || '';
           document.getElementById('inputOperator').value = row.getAttribute('data-operator_name') || '';
-          document.getElementById('inputSupervisor').value = row.getAttribute('data-supervisor_name') || '';
           document.getElementById('inputTargetQty').value = row.getAttribute('data-target_qty') || '';
           document.getElementById('inputOkQty').value = row.getAttribute('data-ok_qty') || '';
           if (document.getElementById('inputReworkQty')) {
             document.getElementById('inputReworkQty').value = row.getAttribute('data-rework_qty') || '0';
           }
           document.getElementById('inputRejectedQty').value = row.getAttribute('data-rejected_qty') || '0';
-          document.getElementById('inputRejectionReason').value = row.getAttribute('data-rejection_reason') || 'None';
           document.getElementById('inputUom').value = row.getAttribute('data-uom') || 'PCS';
           document.getElementById('inputStatus').value = row.getAttribute('data-status') || 'Completed';
-          document.getElementById('inputRemarks').value = row.getAttribute('data-remarks') || '';
+
+          if (mipNoVal) {
+            const tblWrap = document.getElementById('fetchedMipTableWrap');
+            const elNo = document.getElementById('tblMipNo');
+            const elWo = document.getElementById('tblMipWo');
+            const elPart = document.getElementById('tblMipPart');
+            const elQty = document.getElementById('tblMipQty');
+            const elDept = document.getElementById('tblMipDept');
+            const elReceivedBy = document.getElementById('tblMipReceivedBy');
+            const elDate = document.getElementById('tblMipDate');
+
+            if (elNo) elNo.textContent = mipNoVal;
+            if (elWo) elWo.textContent = row.getAttribute('data-work_order') || '-';
+            if (elPart) elPart.textContent = `${pCode} - ${pName}`;
+            if (elQty) elQty.textContent = `${row.getAttribute('data-target_qty') || 0} ${row.getAttribute('data-uom') || 'PCS'}`;
+            if (elDept) elDept.textContent = row.getAttribute('data-department') || '-';
+            if (elReceivedBy) elReceivedBy.textContent = row.getAttribute('data-received_by') || '-';
+            if (elDate) elDate.textContent = '-';
+
+            const match = availableMips.find(m => m.issue_no === mipNoVal) || { part_code: pCode, issued_qty: row.getAttribute('data-target_qty') };
+            renderChildParts(match, row.getAttribute('data-target_qty'));
+            if (tblWrap) tblWrap.style.display = 'block';
+          }
 
           updateLiveYieldCalculation();
-          openModal('Edit Production Entry: ' + (row.getAttribute('data-prd_no') || ''));
+          openModal('Edit Production Entry (ID #' + row.getAttribute('data-id') + ')');
           return;
         }
 
         // Delete
         if (e.target.classList.contains('btn-delete')) {
           pendingDeleteRow = row;
-          deleteTargetCode.textContent = row.getAttribute('data-prd_no') || 'this entry';
+          deleteTargetCode.textContent = row.getAttribute('data-mip_no') ? `MIP: ${row.getAttribute('data-mip_no')}` : `ID #${row.getAttribute('data-id')}`;
           deleteModal.classList.add('active');
           document.body.style.overflow = 'hidden';
         }
       });
 
-      // Confirm Delete
-      confirmDeleteBtn.addEventListener('click', () => {
-        if (pendingDeleteRow) {
+      // Confirm Delete via API
+      confirmDeleteBtn.addEventListener('click', async () => {
+        if (!pendingDeleteRow) return;
+
+        const id = pendingDeleteRow.getAttribute('data-id');
+        if (!id) {
           pendingDeleteRow.remove();
-          showToast('Production entry deleted successfully.', 'success');
+          closeDelete();
+          reindexRows();
+          updateCounters();
+          return;
         }
 
-        const remainingRows = prdTableBody.querySelectorAll('tr:not(#emptyTableRow)');
-        if (remainingRows.length === 0) {
-          prdTableBody.innerHTML = `
-            <tr id="emptyTableRow">
-              <td colspan="11" style="text-align: center; padding: 40px 20px; color: var(--text-sub);">
-                No production entries found. Click <strong>+ Log Production</strong> to record shop-floor output.
-              </td>
-            </tr>
-          `;
-        }
+        confirmDeleteBtn.disabled = true;
+        confirmDeleteBtn.textContent = 'Deleting...';
 
-        reindexRows();
-        updateCounters();
-        closeDelete();
+        try {
+          const res = await fetch('api/production.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', id: id })
+          });
+          const resJson = await res.json();
+
+          if (resJson.success) {
+            pendingDeleteRow.remove();
+            showToast('Production entry deleted from database.', 'success');
+
+            const remainingRows = prdTableBody.querySelectorAll('tr:not(#emptyTableRow)');
+            if (remainingRows.length === 0) {
+              prdTableBody.innerHTML = `
+                <tr id="emptyTableRow">
+                  <td colspan="11" style="text-align: center; padding: 40px 20px; color: var(--text-sub);">
+                    No production entries found. Click <strong>+ Log Production</strong> to record shop-floor output.
+                  </td>
+                </tr>
+              `;
+            }
+            reindexRows();
+            updateCounters();
+            closeDelete();
+          } else {
+            showToast(resJson.message || 'Failed to delete entry.', 'error');
+          }
+        } catch (e) {
+          showToast('Network error while deleting entry.', 'error');
+        } finally {
+          confirmDeleteBtn.disabled = false;
+          confirmDeleteBtn.textContent = 'Delete Entry';
+        }
       });
 
       function closeDelete() {
@@ -2284,23 +2318,26 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
       function updateCounters() {
         const rows = prdTableBody.querySelectorAll('tr:not(#emptyTableRow)');
         let sumOk = 0;
+        let sumRework = 0;
         let sumRej = 0;
         let todayOk = 0;
         const todaySqlStr = '<?php echo $todaySqlDate; ?>';
 
         rows.forEach(r => {
           const ok = parseFloat(r.getAttribute('data-ok_qty') || 0);
+          const rework = parseFloat(r.getAttribute('data-rework_qty') || 0);
           const rej = parseFloat(r.getAttribute('data-rejected_qty') || 0);
-          const pDate = r.getAttribute('data-prd_date') || '';
+          const pDate = r.getAttribute('data-created_at') || '';
 
           sumOk += ok;
+          sumRework += rework;
           sumRej += rej;
           if (pDate === todaySqlStr) {
             todayOk += ok;
           }
         });
 
-        const totalInsp = sumOk + sumRej;
+        const totalInsp = sumOk + sumRework + sumRej;
         const yRate = totalInsp > 0 ? ((sumOk / totalInsp) * 100).toFixed(1) : 100.0;
 
         document.getElementById('statTotalProduced').innerHTML = `${formatNumber(sumOk)} <span style="font-size:0.85rem; font-weight:500; color:var(--text-sub);">PCS</span>`;
