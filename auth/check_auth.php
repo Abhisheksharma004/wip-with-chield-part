@@ -20,3 +20,6 @@ $currentUser = [
     'email' => $_SESSION['user_email'] ?? '',
     'role'  => $_SESSION['user_role'] ?? 'User'
 ];
+
+// Include RBAC Permission Helper
+require_once __DIR__ . '/../includes/rbac.php';

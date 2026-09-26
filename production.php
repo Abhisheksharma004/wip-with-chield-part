@@ -659,7 +659,9 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
               </select>
 
               <!-- + Log Production Button -->
+              <?php if (hasPermission('production', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddPrdModalBtn">+ Log Production</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -744,8 +746,12 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; min-width: 110px;">
                           <button type="button" class="btn-view" title="View Details">View</button>
                           <button type="button" class="btn-print" title="Print Production Slip">Print</button>
+                          <?php if (hasPermission('production', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Entry">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('production', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Entry">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>

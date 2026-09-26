@@ -18,6 +18,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/rbac.php';
 
 $pdo = getDBConnection();
 if (!$pdo) {
@@ -30,6 +31,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // Handle GET request - Fetch all Child Part Inward records (grouped by inward_no)
 if ($method === 'GET') {
+    requirePermission('child_part_in', 'read');
     try {
         $stmt = $pdo->query("
             SELECT id, inward_no, CONVERT(VARCHAR(10), inward_date, 120) as inward_date, 
@@ -109,6 +111,7 @@ if ($method === 'POST') {
 
     // 1. DELETE ACTION
     if ($action === 'delete') {
+        requirePermission('child_part_in', 'delete');
         $id = intval($data['id'] ?? 0);
         $inwardNo = trim($data['inward_no'] ?? '');
 
@@ -271,6 +274,7 @@ if ($method === 'POST') {
 
     // 2. UPDATE ACTION
     if ($action === 'update') {
+        requirePermission('child_part_in', 'update');
         $id = intval($data['id'] ?? 0);
         if ($id <= 0 && empty($inwardNo)) {
             http_response_code(400);
@@ -392,6 +396,7 @@ if ($method === 'POST') {
     }
 
     // 3. CREATE ACTION
+    requirePermission('child_part_in', 'create');
     try {
         if (empty($inwardNo)) {
             $yearPrefix = date('y');

@@ -9,6 +9,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../auth/check_auth.php';
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/rbac.php';
 
 $pdo = getDBConnection();
 if (!$pdo) {
@@ -16,6 +17,8 @@ if (!$pdo) {
     echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
     exit;
 }
+
+requirePermission('dashboard', 'read');
 
 try {
     // -------------------------------------------------------------

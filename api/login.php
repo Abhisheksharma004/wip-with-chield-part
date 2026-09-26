@@ -84,6 +84,10 @@ try {
         $_SESSION['user_role'] = $user['role'];
         $_SESSION['logged_in_time'] = time();
 
+        // Pre-load RBAC permissions into session
+        require_once __DIR__ . '/../includes/rbac.php';
+        loadRolePermissions($user['role']);
+
         // Update last login in MSSQL
         $updateStmt = $pdo->prepare("UPDATE users SET last_login = GETDATE() WHERE id = ?");
         $updateStmt->execute([$user['id']]);

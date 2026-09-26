@@ -1178,7 +1178,9 @@ $activeMenu = 'fg-store.php';
                         <td style="text-align: center; white-space: nowrap;">
                           <div class="action-btns" style="justify-content: center;">
                             <button type="button" class="btn-view" title="View Stock Details">View</button>
+                            <?php if (hasPermission('fg_store', 'create')): ?>
                             <button type="button" class="btn-dispatch" title="Dispatch Part">Dispatch</button>
+                            <?php endif; ?>
                           </div>
                         </td>
                       </tr>
@@ -1201,7 +1203,9 @@ $activeMenu = 'fg-store.php';
               <h2 class="box-title">Finished Goods Inward Receipts &amp; Logs</h2>
               <div class="table-actions">
                 <input type="text" id="inwardSearch" class="simple-input" placeholder="Search MIP No, Part, Inward No..." style="width: 280px;">
+                <?php if (hasPermission('fg_store', 'create')): ?>
                 <button type="button" class="btn-primary openInwardModalTrigger" id="openInwardModalBtn">+ Inward FG</button>
+                <?php endif; ?>
               </div>
             </div>
 
@@ -1284,7 +1288,9 @@ $activeMenu = 'fg-store.php';
               <h2 class="box-title">Finished Goods Dispatch &amp; Outward Logs</h2>
               <div class="table-actions">
                 <input type="text" id="dispatchSearch" class="simple-input" placeholder="Search Dispatch No, Invoice, Part..." style="width: 280px;">
+                <?php if (hasPermission('fg_store', 'create')): ?>
                 <button type="button" class="btn-primary openDispatchModalTrigger" id="openDispatchModalBtn" style="background:#4f46e5; border-color:#4338ca;">+ Dispatch FG</button>
+                <?php endif; ?>
               </div>
             </div>
 

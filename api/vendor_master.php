@@ -17,6 +17,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/rbac.php';
 
 $pdo = getDBConnection();
 if (!$pdo) {
@@ -29,6 +30,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // Handle GET - Fetch all vendor records
 if ($method === 'GET') {
+    requirePermission('vendor_master', 'read');
     try {
         $stmt = $pdo->query("SELECT id, vendor_code, vendor_name, contact_person, phone, email, gstin, address, status, created_at FROM vendor_master ORDER BY id DESC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -57,6 +59,7 @@ if ($method === 'POST') {
 
     // 1. DELETE ACTION
     if ($action === 'delete') {
+        requirePermission('vendor_master', 'delete');
         $id = intval($data['id'] ?? 0);
         $vendorCode = trim($data['vendor_code'] ?? '');
 
@@ -106,6 +109,7 @@ if ($method === 'POST') {
 
     // 2. UPDATE ACTION
     if ($action === 'update') {
+        requirePermission('vendor_master', 'update');
         $id = intval($data['id'] ?? 0);
         if ($id <= 0) {
             http_response_code(400);
@@ -140,6 +144,7 @@ if ($method === 'POST') {
     }
 
     // 3. CREATE ACTION
+    requirePermission('vendor_master', 'create');
     try {
         // Check duplicate code
         $checkStmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM vendor_master WHERE vendor_code = ?");

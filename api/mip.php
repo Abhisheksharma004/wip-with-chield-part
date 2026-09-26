@@ -18,6 +18,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/rbac.php';
 
 $pdo = getDBConnection();
 if (!$pdo) {
@@ -85,6 +86,7 @@ function calculateChildPartsSnapshot($pdo, $partCode, $issuedQty) {
 
 // 1. GET REQUEST - Fetch MIP records
 if ($method === 'GET') {
+    requirePermission('mip', 'read');
     try {
         $stmt = $pdo->query("
             SELECT id, issue_no, 
@@ -133,6 +135,7 @@ if ($method === 'POST') {
     // DELETE ACTION
     // -------------------------------------------------------------
     if ($action === 'delete') {
+        requirePermission('mip', 'delete');
         $id = intval($data['id'] ?? 0);
         if ($id <= 0) {
             http_response_code(400);
@@ -240,6 +243,7 @@ if ($method === 'POST') {
     // UPDATE ACTION
     // -------------------------------------------------------------
     if ($action === 'update') {
+        requirePermission('mip', 'update');
         $id = intval($data['id'] ?? 0);
         if ($id <= 0) {
             http_response_code(400);
@@ -385,6 +389,7 @@ if ($method === 'POST') {
     // CREATE ACTION
     // -------------------------------------------------------------
     if ($action === 'create') {
+        requirePermission('mip', 'create');
         try {
             // Check if issue_no already exists
             $chkStmt = $pdo->prepare("SELECT id FROM material_issue WHERE issue_no = ?");

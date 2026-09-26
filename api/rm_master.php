@@ -17,6 +17,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/rbac.php';
 
 $pdo = getDBConnection();
 if (!$pdo) {
@@ -29,6 +30,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // Handle GET request - Fetch all RM records
 if ($method === 'GET') {
+    requirePermission('rm_master', 'read');
     try {
         $stmt = $pdo->query("SELECT id, rm_code, rm_name, grade_spec, size_dimension, current_stock, uom, status, created_at FROM rm_master ORDER BY id DESC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -58,6 +60,7 @@ if ($method === 'POST') {
 
     // 1. DELETE ACTION
     if ($action === 'delete') {
+        requirePermission('rm_master', 'delete');
         $id = intval($data['id'] ?? 0);
         $rmCode = trim($data['rm_code'] ?? '');
 
@@ -107,6 +110,7 @@ if ($method === 'POST') {
 
     // 2. UPDATE ACTION
     if ($action === 'update') {
+        requirePermission('rm_master', 'update');
         $id = intval($data['id'] ?? 0);
         if ($id <= 0) {
             http_response_code(400);
@@ -154,6 +158,7 @@ if ($method === 'POST') {
     }
 
     // 3. CREATE ACTION
+    requirePermission('rm_master', 'create');
     try {
         // Check for duplicate RM Code
         $checkStmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM rm_master WHERE rm_code = ?");

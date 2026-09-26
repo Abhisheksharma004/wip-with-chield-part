@@ -467,7 +467,9 @@ $pageTitle = 'Child Part Inward';
             <h2 class="box-title">Child Part Inward Register</h2>
             <div class="table-actions">
               <input type="text" id="inwardSearch" class="simple-input" placeholder="Search Vendor, Invoice No, Child Part...">
+              <?php if (hasPermission('child_part_in', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddModalBtn">+ Inward Child Part</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -550,8 +552,12 @@ $pageTitle = 'Child Part Inward';
                       <td style="text-align: center;">
                         <div style="display: flex; gap: 5px; justify-content: center;">
                           <button type="button" class="btn-view" title="View Inward Details">View</button>
+                          <?php if (hasPermission('child_part_in', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Inward Entry">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('child_part_in', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Inward Entry">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>

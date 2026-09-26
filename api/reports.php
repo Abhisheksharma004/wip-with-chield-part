@@ -14,6 +14,9 @@
 require_once __DIR__ . '/../auth/check_auth.php';
 require_once __DIR__ . '/../config/db.php';
 
+// Enforce Read permission for Reports API
+requirePermission('reports', 'read');
+
 $pdo = getDBConnection();
 if (!$pdo) {
     http_response_code(500);

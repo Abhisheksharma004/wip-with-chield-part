@@ -353,7 +353,9 @@ if ($pdo) {
             <h2 class="box-title">Vendor Directory</h2>
             <div class="table-actions">
               <input type="text" id="vendorSearch" class="simple-input" placeholder="Search Code, Name, Address, GSTIN...">
+              <?php if (hasPermission('vendor_master', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddVendorModalBtn">+ Add Vendor</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -395,8 +397,12 @@ if ($pdo) {
                       </td>
                       <td>
                         <div style="display: flex; gap: 6px;">
+                          <?php if (hasPermission('vendor_master', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Vendor">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('vendor_master', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Vendor">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>

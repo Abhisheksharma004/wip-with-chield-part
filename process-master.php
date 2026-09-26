@@ -419,7 +419,9 @@ $pageTitle = 'Process Master';
             <h2 class="box-title">Process Directory</h2>
             <div class="table-actions">
               <input type="text" id="prcSearch" class="simple-input" placeholder="Search Process Code, Name, Remarks...">
+              <?php if (hasPermission('process_master', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddPrcModalBtn">+ Add Process</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -456,8 +458,12 @@ $pageTitle = 'Process Master';
                       <td class="col-prc-remarks"><?php echo htmlspecialchars($item['remarks'] ?: '-'); ?></td>
                       <td>
                         <div style="display: flex; gap: 6px;">
+                          <?php if (hasPermission('process_master', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Process">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('process_master', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Process">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>

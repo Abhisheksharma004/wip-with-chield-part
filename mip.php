@@ -582,7 +582,9 @@ $pageTitle = 'Material Issue for Production (MIP)';
             <h2 class="box-title">Material Issue for Production (MIP)</h2>
             <div class="table-actions">
               <input type="text" id="mipSearch" class="simple-input" placeholder="Search Issue No, Part, Work Order...">
+              <?php if (hasPermission('mip', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddModalBtn">+ Issue Material</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -657,8 +659,12 @@ $pageTitle = 'Material Issue for Production (MIP)';
                         <div style="display: flex; gap: 4px; justify-content: center;">
                           <button type="button" class="btn-view" title="View Details">View</button>
                           <button type="button" class="btn-print" title="Print Slip (A4)">Print</button>
+                          <?php if (hasPermission('mip', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Entry">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('mip', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Entry">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>

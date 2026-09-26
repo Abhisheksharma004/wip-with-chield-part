@@ -24,6 +24,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 // 1. GET REQUEST - Fetch production records
 // -----------------------------------------------------------------
 if ($method === 'GET') {
+    requirePermission('production', 'read');
     try {
         $stmt = $pdo->query("
             SELECT id, mip_no, work_order, part_code, part_name,
@@ -64,6 +65,7 @@ if ($method === 'POST') {
     // DELETE ACTION
     // -------------------------------------------------------------
     if ($action === 'delete') {
+        requirePermission('production', 'delete');
         $id = intval($data['id'] ?? 0);
         if ($id <= 0) {
             http_response_code(400);
@@ -134,6 +136,7 @@ if ($method === 'POST') {
 
     if ($action === 'update' && $id > 0) {
         // UPDATE EXISTING ENTRY
+        requirePermission('production', 'update');
         try {
             $updateSql = "
                 UPDATE production_entry SET
@@ -202,6 +205,7 @@ if ($method === 'POST') {
         exit;
     } else {
         // CREATE NEW ENTRY
+        requirePermission('production', 'create');
         try {
             $insertSql = "
                 INSERT INTO production_entry (

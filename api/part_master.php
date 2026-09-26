@@ -17,6 +17,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/rbac.php';
 
 $pdo = getDBConnection();
 if (!$pdo) {
@@ -29,6 +30,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // Handle GET request - Fetch all Part records
 if ($method === 'GET') {
+    requirePermission('part_master', 'read');
     try {
         $stmt = $pdo->query("SELECT id, part_code, part_name, child_parts, status, created_at FROM part_master ORDER BY id DESC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -58,6 +60,7 @@ if ($method === 'POST') {
 
     // 1. DELETE ACTION
     if ($action === 'delete') {
+        requirePermission('part_master', 'delete');
         $id = intval($data['id'] ?? 0);
         $partCode = trim($data['part_code'] ?? '');
 
@@ -110,6 +113,7 @@ if ($method === 'POST') {
 
     // 2. UPDATE ACTION
     if ($action === 'update') {
+        requirePermission('part_master', 'update');
         $id = intval($data['id'] ?? 0);
         if ($id <= 0) {
             http_response_code(400);
@@ -154,6 +158,7 @@ if ($method === 'POST') {
     }
 
     // 3. CREATE ACTION
+    requirePermission('part_master', 'create');
     try {
         // Check for duplicate Part Code
         $checkStmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM part_master WHERE part_code = ?");

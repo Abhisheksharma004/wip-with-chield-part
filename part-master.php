@@ -564,7 +564,9 @@ $pageTitle = 'Part Master';
             <h2 class="box-title">Part Master Directory</h2>
             <div class="table-actions">
               <input type="text" id="ptSearch" class="simple-input" placeholder="Search Part Code, Name, Child Parts...">
+              <?php if (hasPermission('part_master', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddPtModalBtn">+ Add Part</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -615,8 +617,12 @@ $pageTitle = 'Part Master';
                       </td>
                       <td>
                         <div style="display: flex; gap: 6px;">
+                          <?php if (hasPermission('part_master', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Part">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('part_master', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Part">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>

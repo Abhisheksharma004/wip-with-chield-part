@@ -85,6 +85,7 @@ try {
 // 1. GET REQUEST - Fetch Inventory, Inward Logs, or Dispatch Logs
 // -----------------------------------------------------------------
 if ($method === 'GET') {
+    requirePermission('fg_store', 'read');
     $action = trim($_GET['action'] ?? '');
     $type = trim($_GET['type'] ?? 'inventory');
 
@@ -140,6 +141,7 @@ if ($method === 'GET') {
 // 2. POST REQUEST - Save Inward or Dispatch
 // -----------------------------------------------------------------
 if ($method === 'POST') {
+    requirePermission('fg_store', 'create');
     $rawInput = file_get_contents('php://input');
     $data = json_decode($rawInput, true);
     if (!is_array($data) || empty($data)) {

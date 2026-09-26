@@ -415,7 +415,9 @@ $pageTitle = 'Child Part Master';
             <h2 class="box-title">Child Part Directory</h2>
             <div class="table-actions">
               <input type="text" id="cpSearch" class="simple-input" placeholder="Search Code, Name, Grade, Size...">
+              <?php if (hasPermission('child_part_master', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddCpModalBtn">+ Add Child Part</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -467,8 +469,12 @@ $pageTitle = 'Child Part Master';
                       </td>
                       <td>
                         <div style="display: flex; gap: 6px;">
+                          <?php if (hasPermission('child_part_master', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Item">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('child_part_master', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Item">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>

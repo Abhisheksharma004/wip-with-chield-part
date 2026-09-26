@@ -17,6 +17,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/rbac.php';
 
 $pdo = getDBConnection();
 if (!$pdo) {
@@ -29,6 +30,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 
 // Handle GET request - Fetch all Process records
 if ($method === 'GET') {
+    requirePermission('process_master', 'read');
     try {
         $stmt = $pdo->query("SELECT id, process_code, process_name, status, remarks, created_at FROM process_master ORDER BY id DESC");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -58,6 +60,7 @@ if ($method === 'POST') {
 
     // 1. DELETE ACTION
     if ($action === 'delete') {
+        requirePermission('process_master', 'delete');
         $id = intval($data['id'] ?? 0);
         $processCode = trim($data['process_code'] ?? '');
 
@@ -103,6 +106,7 @@ if ($method === 'POST') {
 
     // 2. UPDATE ACTION
     if ($action === 'update') {
+        requirePermission('process_master', 'update');
         $id = intval($data['id'] ?? 0);
         if ($id <= 0) {
             http_response_code(400);
@@ -147,6 +151,7 @@ if ($method === 'POST') {
     }
 
     // 3. CREATE ACTION
+    requirePermission('process_master', 'create');
     try {
         // Check for duplicate Process Code
         $checkStmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM process_master WHERE process_code = ?");

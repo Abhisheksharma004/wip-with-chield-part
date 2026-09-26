@@ -602,7 +602,9 @@ $pageTitle = 'RM Inward';
             <h2 class="box-title">RM Inward Register</h2>
             <div class="table-actions">
               <input type="text" id="inwardSearch" class="simple-input" placeholder="Search Vendor, Invoice No, RM Item...">
+              <?php if (hasPermission('rm_in', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddModalBtn">+ Inward RM</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -693,8 +695,12 @@ $pageTitle = 'RM Inward';
                       <td style="text-align: center;">
                         <div style="display: flex; gap: 5px; justify-content: center;">
                           <button type="button" class="btn-view" title="View Inward Details">View</button>
+                          <?php if (hasPermission('rm_in', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Inward Entry">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('rm_in', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Inward Entry">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>

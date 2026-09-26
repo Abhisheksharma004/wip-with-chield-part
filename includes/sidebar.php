@@ -26,7 +26,12 @@ $isMasterActive = in_array($currentScript, [
 
   <!-- Navigation Menu -->
   <nav class="sidebar-menu">
+<?php
+// Master dropdown visibility check
+$canMaster = hasPermission('vendor_master') || hasPermission('rm_master') || hasPermission('child_part_master') || hasPermission('process_master') || hasPermission('part_master');
+?>
     <!-- 1. Dashboard -->
+    <?php if (hasPermission('dashboard')): ?>
     <a href="dashboard.php" class="menu-item <?= ($currentScript === 'dashboard.php' || $currentScript === 'dashboard') ? 'active' : '' ?>">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="7" height="9"></rect>
@@ -36,8 +41,10 @@ $isMasterActive = in_array($currentScript, [
       </svg>
       Dashboard
     </a>
+    <?php endif; ?>
 
     <!-- 2. Master Dropdown (Contains Vendor, RM, Child, Process, Part) -->
+    <?php if ($canMaster): ?>
     <div class="sidebar-dropdown <?= $isMasterActive ? 'open' : '' ?>" id="masterDropdown">
       <button type="button" class="dropdown-toggle" id="masterDropdownBtn" aria-expanded="<?= $isMasterActive ? 'true' : 'false' ?>">
         <div class="dropdown-toggle-left">
@@ -55,6 +62,7 @@ $isMasterActive = in_array($currentScript, [
 
       <div class="sidebar-submenu" id="masterSubmenu">
         <!-- Sub 1. Vendor Master -->
+        <?php if (hasPermission('vendor_master')): ?>
         <a href="vendor-master.php" class="submenu-item <?= ($currentScript === 'vendor-master.php' || $currentScript === 'vendor-master') ? 'active' : '' ?>">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -64,8 +72,10 @@ $isMasterActive = in_array($currentScript, [
           </svg>
           Vendor Master
         </a>
+        <?php endif; ?>
 
         <!-- Sub 2. RM Master -->
+        <?php if (hasPermission('rm_master')): ?>
         <a href="rm-master.php" class="submenu-item <?= ($currentScript === 'rm-master.php' || $currentScript === 'rm-master') ? 'active' : '' ?>">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -74,8 +84,10 @@ $isMasterActive = in_array($currentScript, [
           </svg>
           RM Master
         </a>
+        <?php endif; ?>
 
         <!-- Sub 3. Child Part Master -->
+        <?php if (hasPermission('child_part_master')): ?>
         <a href="child-part-master.php" class="submenu-item <?= ($currentScript === 'child-part-master.php' || $currentScript === 'child-part-master' || $currentScript === 'child-master.php') ? 'active' : '' ?>" title="Child Part Master">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
@@ -84,8 +96,10 @@ $isMasterActive = in_array($currentScript, [
           </svg>
           Child Part Master
         </a>
+        <?php endif; ?>
 
         <!-- Sub 4. Process Master -->
+        <?php if (hasPermission('process_master')): ?>
         <a href="process-master.php" class="submenu-item <?= ($currentScript === 'process-master.php' || $currentScript === 'process-master') ? 'active' : '' ?>" title="Process Master">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
@@ -93,18 +107,23 @@ $isMasterActive = in_array($currentScript, [
           </svg>
           Process Master
         </a>
+        <?php endif; ?>
 
         <!-- Sub 5. Part Master -->
+        <?php if (hasPermission('part_master')): ?>
         <a href="part-master.php" class="submenu-item <?= ($currentScript === 'part-master.php' || $currentScript === 'part-master') ? 'active' : '' ?>" title="Part Master">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
           </svg>
           Part Master
         </a>
+        <?php endif; ?>
       </div>
     </div>
+    <?php endif; ?>
 
     <!-- 5. RM In -->
+    <?php if (hasPermission('rm_in')): ?>
     <a href="rm-in.php" class="menu-item <?= ($currentScript === 'rm-in.php' || $currentScript === 'rm-in') ? 'active' : '' ?>" title="RM In">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -113,8 +132,10 @@ $isMasterActive = in_array($currentScript, [
       </svg>
       RM In
     </a>
+    <?php endif; ?>
 
     <!-- 6. Child Part In -->
+    <?php if (hasPermission('child_part_in')): ?>
     <a href="child-part-in.php" class="menu-item <?= ($currentScript === 'child-part-in.php' || $currentScript === 'child-part-in') ? 'active' : '' ?>" title="Child Part In">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
@@ -123,8 +144,10 @@ $isMasterActive = in_array($currentScript, [
       </svg>
       Child Part In
     </a>
+    <?php endif; ?>
 
     <!-- 7. MIP (Material Issue for Production) -->
+    <?php if (hasPermission('mip')): ?>
     <a href="mip.php" class="menu-item <?= ($currentScript === 'mip.php' || $currentScript === 'mip') ? 'active' : '' ?>" title="Material Issue for Production (MIP)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -133,8 +156,10 @@ $isMasterActive = in_array($currentScript, [
       </svg>
       MIP
     </a>
+    <?php endif; ?>
 
     <!-- 8. Production -->
+    <?php if (hasPermission('production')): ?>
     <a href="production.php" class="menu-item <?= ($currentScript === 'production.php' || $currentScript === 'production' || $currentScript === 'dpr.php' || $currentScript === 'dpr') ? 'active' : '' ?>" title="Production">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4H2z"></path>
@@ -144,8 +169,10 @@ $isMasterActive = in_array($currentScript, [
       </svg>
       Production
     </a>
+    <?php endif; ?>
 
     <!-- 9. FG Store -->
+    <?php if (hasPermission('fg_store')): ?>
     <a href="fg-store.php" class="menu-item <?= ($currentScript === 'fg-store.php' || $currentScript === 'fg-store') ? 'active' : '' ?>" title="FG Store">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="21 8 21 21 3 21 3 8"></polyline>
@@ -154,8 +181,10 @@ $isMasterActive = in_array($currentScript, [
       </svg>
       FG Store
     </a>
+    <?php endif; ?>
 
     <!-- 10. Reports -->
+    <?php if (hasPermission('reports')): ?>
     <a href="reports.php" class="menu-item <?= ($currentScript === 'reports.php' || $currentScript === 'reports') ? 'active' : '' ?>" title="Reports">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="18" y1="20" x2="18" y2="10"></line>
@@ -164,7 +193,20 @@ $isMasterActive = in_array($currentScript, [
       </svg>
       Reports
     </a>
+    <?php endif; ?>
 
+    <!-- 11. Users -->
+    <?php if (hasPermission('users')): ?>
+    <a href="users.php" class="menu-item <?= ($currentScript === 'users.php' || $currentScript === 'users') ? 'active' : '' ?>" title="User Management">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      Users
+    </a>
+    <?php endif; ?>
   </nav>
 
   <!-- Sidebar Bottom Logout -->

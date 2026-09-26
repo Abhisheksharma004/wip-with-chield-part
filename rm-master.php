@@ -427,7 +427,9 @@ $gradeCount = count($gradesSet);
             <h2 class="box-title">Raw Material (RM) Master</h2>
             <div class="table-actions">
               <input type="text" id="rmSearch" class="simple-input" placeholder="Search RM Code, Name, Grade...">
+              <?php if (hasPermission('rm_master', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddRmModalBtn">+ Add RM</button>
+              <?php endif; ?>
             </div>
           </div>
 
@@ -474,8 +476,12 @@ $gradeCount = count($gradesSet);
                       </td>
                       <td>
                         <div style="display: flex; gap: 6px;">
+                          <?php if (hasPermission('rm_master', 'update')): ?>
                           <button type="button" class="btn-edit" title="Edit Item">Edit</button>
+                          <?php endif; ?>
+                          <?php if (hasPermission('rm_master', 'delete')): ?>
                           <button type="button" class="btn-delete" title="Delete Item">Delete</button>
+                          <?php endif; ?>
                         </div>
                       </td>
                     </tr>
