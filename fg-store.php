@@ -1118,6 +1118,7 @@ $activeMenu = 'fg-store.php';
               <h2 class="box-title">Finished Goods (FG) Inventory Stock</h2>
               <div class="table-actions">
                 <input type="text" id="fgSearch" class="simple-input" placeholder="Search Part Code or Name..." style="width: 280px;">
+                <button type="button" class="btn-primary openInwardModalTrigger" id="openInwardModalBtnTab1">+ Inward FG</button>
                 <button type="button" class="btn-primary openDispatchModalTrigger" style="background:#4f46e5; border-color:#4338ca;">+ Dispatch FG</button>
               </div>
             </div>
@@ -1200,7 +1201,7 @@ $activeMenu = 'fg-store.php';
               <h2 class="box-title">Finished Goods Inward Receipts &amp; Logs</h2>
               <div class="table-actions">
                 <input type="text" id="inwardSearch" class="simple-input" placeholder="Search MIP No, Part, Inward No..." style="width: 280px;">
-                <button type="button" class="btn-primary" id="openInwardModalBtn">+ Inward FG</button>
+                <button type="button" class="btn-primary openInwardModalTrigger" id="openInwardModalBtn">+ Inward FG</button>
               </div>
             </div>
 
@@ -1882,15 +1883,17 @@ $activeMenu = 'fg-store.php';
       }
 
       // Open Inward Modal
-      if (openInwardModalBtn) {
-        openInwardModalBtn.addEventListener('click', function() {
-          clearMipScan();
-          inwardModal.classList.add('active');
-          setTimeout(() => {
-            if (scanMipInput) scanMipInput.focus();
-          }, 120);
-        });
+      function openInwardModal() {
+        clearMipScan();
+        inwardModal.classList.add('active');
+        setTimeout(() => {
+          if (scanMipInput) scanMipInput.focus();
+        }, 120);
       }
+
+      document.querySelectorAll('.openInwardModalTrigger, #openInwardModalBtn, #openInwardModalBtnTab1').forEach(function(btn) {
+        btn.addEventListener('click', openInwardModal);
+      });
 
       // Close Inward Modal
       function closeInwardModal() {

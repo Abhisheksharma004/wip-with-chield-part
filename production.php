@@ -1855,6 +1855,61 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
       closeViewPrdBtn.addEventListener('click', closeViewModal);
       closeViewPrdFooterBtn.addEventListener('click', closeViewModal);
 
+      // High-Quality Code 128 (Subset B) SVG Barcode Generator (Offline, High-Density)
+      function generateBarcode128Svg(text, height = 42) {
+        if (!text || text === '-') return '';
+        const str = String(text).trim();
+        const P = [
+          '212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
+          '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
+          '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
+          '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
+          '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
+          '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
+          '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
+          '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
+          '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
+          '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
+          '114131','311141','411131','211412','211214','211232','2331112'
+        ];
+
+        let codes = [104]; // Start B
+        let check = 104;
+        for (let i = 0; i < str.length; i++) {
+          let val = str.charCodeAt(i) - 32;
+          if (val < 0 || val > 95) val = 0;
+          codes.push(val);
+          check += val * (i + 1);
+        }
+        codes.push(check % 103);
+        codes.push(106); // Stop
+
+        const patternStr = codes.map(c => P[c]).join('');
+        const unit = 1.3;
+        const quietZone = unit * 5;
+        let currentX = quietZone;
+        let rects = '';
+        let isBar = true;
+
+        for (let i = 0; i < patternStr.length; i++) {
+          const width = parseInt(patternStr[i], 10) * unit;
+          if (isBar) {
+            rects += `<rect x="${currentX.toFixed(2)}" y="0" width="${width.toFixed(2)}" height="${height}" fill="#000000"/>`;
+          }
+          currentX += width;
+          isBar = !isBar;
+        }
+
+        const totalWidth = currentX + quietZone;
+
+        return `
+          <svg width="${Math.ceil(totalWidth)}" height="${height}" viewBox="0 0 ${totalWidth} ${height}" xmlns="http://www.w3.org/2000/svg" style="display:block;">
+            <rect x="0" y="0" width="${totalWidth}" height="${height}" fill="#ffffff"/>
+            ${rects}
+          </svg>
+        `;
+      }
+
       // Print Production Slip (A4 Portrait)
       function printProductionSlip(data) {
         const totalInsp = data.okQty + data.rejectedQty;
@@ -2029,7 +2084,15 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
               </tr>
               <tr>
                 <td class="lbl">MIP Slip No:</td>
-                <td class="val"><strong>${escapeHtml(data.mipNo || '-')}</strong></td>
+                <td class="val" style="vertical-align: middle;">
+                  ${data.mipNo && data.mipNo !== '-' ? `
+                  <div style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                    ${generateBarcode128Svg(data.mipNo, 42)}
+                    <div style="font-weight: 700; color: #0f172a; font-size: 11.5px; letter-spacing: 0.5px; margin-top: 3px; text-align: center;">
+                      ${escapeHtml(data.mipNo)}
+                    </div>
+                  </div>` : `<strong>-</strong>`}
+                </td>
                 <td class="lbl">Work Order No:</td>
                 <td class="val"><strong>${escapeHtml(data.workOrder || '-')}</strong></td>
               </tr>
