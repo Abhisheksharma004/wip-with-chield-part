@@ -20,6 +20,7 @@ if (!isset($pageTitle)) {
         'mip.php' => 'Material Issue for Production (MIP)',
         'production.php' => 'Production Entry / DPR',
         'fg-store.php' => 'Finished Goods Store (FG Store)',
+        'reports.php' => 'Reports & Analytics',
     ];
     $pageTitle = $pageTitles[$script] ?? 'WIP Management';
 }
