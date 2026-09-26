@@ -317,6 +317,55 @@ try {
     ";
     $pdoApp->exec($createPrdTableSql);
     echo "[OK] 'production_entry' table is ready.\n";
+
+    // Create fg_inventory Table (Summary per part code with accumulated stock)
+    $createFgInventoryTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='fg_inventory' AND xtype='U')
+    BEGIN
+        CREATE TABLE fg_inventory (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            part_code NVARCHAR(50) NOT NULL,
+            part_name NVARCHAR(150) NOT NULL,
+            total_ok_qty DECIMAL(18, 3) NOT NULL DEFAULT 0.000,
+            uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
+            rack NVARCHAR(50) NOT NULL DEFAULT 'RACK-A1',
+            bin NVARCHAR(50) NOT NULL DEFAULT 'BIN-01',
+            last_mip_no NVARCHAR(50) NULL,
+            last_production_date DATE NULL,
+            created_at DATETIME DEFAULT GETDATE(),
+            updated_at DATETIME DEFAULT GETDATE(),
+            CONSTRAINT UQ_fg_inv_part_rack_bin UNIQUE (part_code, rack, bin)
+        );
+    END
+    ";
+    $pdoApp->exec($createFgInventoryTableSql);
+    echo "[OK] 'fg_inventory' table is ready.\n";
+
+    // Create fg_inward_logs Table (Inward transaction logs)
+    $createFgInwardLogsTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='fg_inward_logs' AND xtype='U')
+    BEGIN
+        CREATE TABLE fg_inward_logs (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            inward_no NVARCHAR(50) NOT NULL,
+            mip_no NVARCHAR(50) NOT NULL,
+            production_date DATE NULL,
+            part_code NVARCHAR(50) NOT NULL,
+            part_name NVARCHAR(150) NOT NULL,
+            ok_qty DECIMAL(18, 3) NOT NULL,
+            uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
+            rack NVARCHAR(50) NULL DEFAULT 'RACK-A1',
+            bin NVARCHAR(50) NULL DEFAULT 'BIN-01',
+            qc_status NVARCHAR(50) DEFAULT 'QC Passed',
+            work_order NVARCHAR(100) NULL,
+            received_by NVARCHAR(150) NULL,
+            remarks NVARCHAR(500) NULL,
+            created_at DATETIME DEFAULT GETDATE()
+        );
+    END
+    ";
+    $pdoApp->exec($createFgInwardLogsTableSql);
+    echo "[OK] 'fg_inward_logs' table is ready.\n";
 } catch (PDOException $e) {
     die("[ERROR] Failed to create tables: " . $e->getMessage() . "\n");
 }

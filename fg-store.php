@@ -61,6 +61,198 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_mip') {
     exit;
 }
 
+// Auto-verify and create FG Store tables if not yet created
+if ($pdo) {
+    try {
+        $pdo->exec("
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='fg_inventory' AND xtype='U')
+            BEGIN
+                CREATE TABLE fg_inventory (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    part_code NVARCHAR(50) NOT NULL,
+                    part_name NVARCHAR(150) NOT NULL,
+                    total_ok_qty DECIMAL(18, 3) NOT NULL DEFAULT 0.000,
+                    uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
+                    rack NVARCHAR(50) NOT NULL DEFAULT 'RACK-A1',
+                    bin NVARCHAR(50) NOT NULL DEFAULT 'BIN-01',
+                    last_mip_no NVARCHAR(50) NULL,
+                    last_production_date DATE NULL,
+                    created_at DATETIME DEFAULT GETDATE(),
+                    updated_at DATETIME DEFAULT GETDATE(),
+                    CONSTRAINT UQ_fg_inv_part_rack_bin UNIQUE (part_code, rack, bin)
+                );
+            END
+
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='fg_inward_logs' AND xtype='U')
+            BEGIN
+                CREATE TABLE fg_inward_logs (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    inward_no NVARCHAR(50) NOT NULL,
+                    mip_no NVARCHAR(50) NOT NULL,
+                    production_date DATE NULL,
+                    part_code NVARCHAR(50) NOT NULL,
+                    part_name NVARCHAR(150) NOT NULL,
+                    ok_qty DECIMAL(18, 3) NOT NULL,
+                    uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
+                    rack NVARCHAR(50) NULL DEFAULT 'RACK-A1',
+                    bin NVARCHAR(50) NULL DEFAULT 'BIN-01',
+                    qc_status NVARCHAR(50) DEFAULT 'QC Passed',
+                    work_order NVARCHAR(100) NULL,
+                    received_by NVARCHAR(150) NULL,
+                    remarks NVARCHAR(500) NULL,
+                    created_at DATETIME DEFAULT GETDATE()
+                );
+            END
+        ");
+    } catch (PDOException $e) {
+        // Table check fallback
+    }
+}
+
+// Live AJAX API handler for Saving Inward Finished Goods
+if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'save_inward') ||
+    ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_inward')) {
+    header('Content-Type: application/json; charset=utf-8');
+    if (!$pdo) {
+        echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
+        exit;
+    }
+
+    $rawInput = file_get_contents('php://input');
+    $postData = json_decode($rawInput, true);
+    if (!is_array($postData) || empty($postData)) {
+        $postData = $_POST;
+    }
+
+    $inwardNo = trim($postData['inward_no'] ?? '');
+    $mipNo = trim($postData['mip_no'] ?? '');
+    $partCode = trim($postData['part_code'] ?? '');
+    $partName = trim($postData['part_name'] ?? '');
+    $okQty = floatval($postData['inward_qty'] ?? $postData['ok_qty'] ?? 0);
+    $uom = trim($postData['uom'] ?? 'PCS');
+    $rack = trim($postData['rack'] ?? 'RACK-A1');
+    $bin = trim($postData['bin'] ?? 'BIN-01');
+    $prodDate = trim($postData['inward_date'] ?? $postData['production_date'] ?? date('Y-m-d'));
+    $workOrder = trim($postData['work_order'] ?? '');
+    $receivedBy = trim($postData['received_by'] ?? '');
+    $remarks = trim($postData['remarks'] ?? '');
+
+    if (empty($inwardNo)) {
+        $inwardNo = 'FGI-' . date('Y') . '-' . rand(100, 999);
+    }
+    if (empty($partCode)) {
+        echo json_encode(['success' => false, 'message' => 'Part code is required.']);
+        exit;
+    }
+    if ($okQty <= 0) {
+        echo json_encode(['success' => false, 'message' => 'Ok quantity must be greater than zero.']);
+        exit;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        // 1. Insert into fg_inward_logs (individual inward transaction log)
+        $stmtLog = $pdo->prepare("
+            INSERT INTO fg_inward_logs 
+                (inward_no, mip_no, production_date, part_code, part_name, ok_qty, uom, rack, bin, qc_status, work_order, received_by, remarks, created_at)
+            VALUES 
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, 'QC Passed', ?, ?, ?, GETDATE())
+        ");
+        $stmtLog->execute([
+            $inwardNo,
+            $mipNo,
+            !empty($prodDate) ? $prodDate : null,
+            $partCode,
+            $partName,
+            $okQty,
+            $uom,
+            $rack,
+            $bin,
+            $workOrder,
+            $receivedBy,
+            $remarks
+        ]);
+
+        // 2. Check if this part already exists in THIS specific rack & bin
+        $stmtCheck = $pdo->prepare("SELECT id, total_ok_qty FROM fg_inventory WHERE part_code = ? AND rack = ? AND bin = ?");
+        $stmtCheck->execute([$partCode, $rack, $bin]);
+        $existing = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        if ($existing) {
+            // Part exists in this specific location: accumulate quantity
+            $stmtUpd = $pdo->prepare("
+                UPDATE fg_inventory 
+                SET total_ok_qty = total_ok_qty + ?,
+                    part_name = ?,
+                    uom = ?,
+                    last_mip_no = ?,
+                    last_production_date = ?,
+                    updated_at = GETDATE()
+                WHERE id = ?
+            ");
+            $stmtUpd->execute([
+                $okQty,
+                $partName,
+                $uom,
+                $mipNo,
+                !empty($prodDate) ? $prodDate : null,
+                $existing['id']
+            ]);
+            $locationTotal = floatval($existing['total_ok_qty']) + $okQty;
+        } else {
+            // New rack/bin for this part: insert new location row
+            $stmtIns = $pdo->prepare("
+                INSERT INTO fg_inventory 
+                    (part_code, part_name, total_ok_qty, uom, rack, bin, last_mip_no, last_production_date, created_at, updated_at)
+                VALUES 
+                    (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+            ");
+            $stmtIns->execute([
+                $partCode,
+                $partName,
+                $okQty,
+                $uom,
+                $rack,
+                $bin,
+                $mipNo,
+                !empty($prodDate) ? $prodDate : null
+            ]);
+            $locationTotal = $okQty;
+        }
+
+        // Calculate consolidated total stock across all locations for this part
+        $stmtSum = $pdo->prepare("SELECT SUM(total_ok_qty) as overall_total FROM fg_inventory WHERE part_code = ?");
+        $stmtSum->execute([$partCode]);
+        $sumRow = $stmtSum->fetch(PDO::FETCH_ASSOC);
+        $updatedTotal = floatval($sumRow['overall_total'] ?? $locationTotal);
+
+        $pdo->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Finished goods inward saved successfully!',
+            'data' => [
+                'part_code' => $partCode,
+                'part_name' => $partName,
+                'added_qty' => $okQty,
+                'total_qty' => $updatedTotal,
+                'uom' => $uom,
+                'rack' => $rack,
+                'bin' => $bin,
+                'inward_no' => $inwardNo,
+                'mip_no' => $mipNo
+            ]
+        ]);
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 $activeParts = [];
 $productionList = [];
 
@@ -177,124 +369,69 @@ if (!$pdo && empty($productionList)) {
     ];
 }
 
-// Sample FG stock data matching the Inward Form fields
-$fgSampleList = [
-    [
-        'id' => 1,
-        'mip_no' => 'MIP-001',
-        'inward_no' => 'MIP-001',
-        'production_date' => date('Y-m-d', strtotime('-4 days')),
-        'inward_date' => date('Y-m-d', strtotime('-4 days')),
-        'part_code' => 'P1001',
-        'part_name' => 'Front Mounting Assembly',
-        'batch_no' => 'MIP-001',
-        'inward_qty' => 350,
-        'ok_qty' => 350,
-        'dispatched_qty' => 80,
-        'available_stock' => 270,
-        'uom' => 'PCS',
-        'rack' => 'RACK-A1',
-        'bin' => 'BIN-02',
-        'location' => 'RACK-A1 / BIN-02',
-        'work_order' => 'WO-9841',
-        'received_by' => 'Rajesh Sharma',
-        'qc_status' => 'QC Passed',
-        'status' => 'Available',
-        'remarks' => 'Quality QC Passed 100%'
-    ],
-    [
-        'id' => 2,
-        'mip_no' => 'MIP-002',
-        'inward_no' => 'MIP-002',
-        'production_date' => date('Y-m-d', strtotime('-2 days')),
-        'inward_date' => date('Y-m-d', strtotime('-2 days')),
-        'part_code' => 'P1002',
-        'part_name' => 'Main Chassis Sub-Assembly',
-        'batch_no' => 'MIP-002',
-        'inward_qty' => 200,
-        'ok_qty' => 200,
-        'dispatched_qty' => 170,
-        'available_stock' => 30,
-        'uom' => 'PCS',
-        'rack' => 'RACK-A2',
-        'bin' => 'BIN-05',
-        'location' => 'RACK-A2 / BIN-05',
-        'work_order' => 'WO-9842',
-        'received_by' => 'Amit Kumar',
-        'qc_status' => 'QC Passed',
-        'status' => 'Low Stock',
-        'remarks' => 'Ready for customer order dispatch'
-    ],
-    [
-        'id' => 3,
-        'mip_no' => 'MIP-003',
-        'inward_no' => 'MIP-003',
-        'production_date' => date('Y-m-d', strtotime('-1 days')),
-        'inward_date' => date('Y-m-d', strtotime('-1 days')),
-        'part_code' => 'P1003',
-        'part_name' => 'Support Bracket Assembly',
-        'batch_no' => 'MIP-003',
-        'inward_qty' => 450,
-        'ok_qty' => 450,
-        'dispatched_qty' => 50,
-        'available_stock' => 400,
-        'uom' => 'PCS',
-        'rack' => 'RACK-B1',
-        'bin' => 'BIN-01',
-        'location' => 'RACK-B1 / BIN-01',
-        'work_order' => 'WO-9845',
-        'received_by' => 'Sunil Verma',
-        'qc_status' => 'QC Passed',
-        'status' => 'Available',
-        'remarks' => 'High demand product'
-    ],
-    [
-        'id' => 4,
-        'mip_no' => 'MIP-004',
-        'inward_no' => 'MIP-004',
-        'production_date' => date('Y-m-d'),
-        'inward_date' => date('Y-m-d'),
-        'part_code' => 'P1004',
-        'part_name' => 'Retainer Frame Assembly',
-        'batch_no' => 'MIP-004',
-        'inward_qty' => 180,
-        'ok_qty' => 180,
-        'dispatched_qty' => 0,
-        'available_stock' => 180,
-        'uom' => 'PCS',
-        'rack' => 'RACK-B2',
-        'bin' => 'BIN-04',
-        'location' => 'RACK-B2 / BIN-04',
-        'work_order' => 'WO-9849',
-        'received_by' => 'Rajesh Sharma',
-        'qc_status' => 'QC Passed',
-        'status' => 'Available',
-        'remarks' => 'Today morning shop floor inward'
-    ],
-    [
-        'id' => 5,
-        'mip_no' => 'MIP-005',
-        'inward_no' => 'MIP-005',
-        'production_date' => date('Y-m-d', strtotime('-6 days')),
-        'inward_date' => date('Y-m-d', strtotime('-6 days')),
-        'part_code' => 'P1005',
-        'part_name' => 'Heavy Duty Base Plate',
-        'batch_no' => 'MIP-005',
-        'inward_qty' => 150,
-        'ok_qty' => 150,
-        'dispatched_qty' => 150,
-        'available_stock' => 0,
-        'uom' => 'PCS',
-        'rack' => 'RACK-C1',
-        'bin' => 'BIN-03',
-        'location' => 'RACK-C1 / BIN-03',
-        'work_order' => 'WO-9830',
-        'received_by' => 'Vikas Singh',
-        'qc_status' => 'QC Passed',
-        'status' => 'Dispatched',
-        'remarks' => 'Complete batch dispatched to client'
-    ]
-];
+// Fetch real FG Inventory (Tab 1: Part-wise accumulated stock) and Inward Logs (Tab 2)
+$fgInventoryList = [];
+$fgInwardLogsList = [];
+
+if ($pdo) {
+    try {
+        $stmtInv = $pdo->query("
+            SELECT id, part_code, part_name, total_ok_qty, uom, rack, bin, 
+                   last_mip_no,
+                   CONVERT(VARCHAR(10), last_production_date, 120) as production_date,
+                   CONVERT(VARCHAR(19), updated_at, 120) as updated_at
+            FROM fg_inventory
+            ORDER BY part_code ASC, rack ASC, bin ASC
+        ");
+        $rawInvRows = $stmtInv ? $stmtInv->fetchAll(PDO::FETCH_ASSOC) : [];
+
+        $groupedParts = [];
+        foreach ($rawInvRows as $r) {
+            $pCode = $r['part_code'];
+            if (!isset($groupedParts[$pCode])) {
+                $groupedParts[$pCode] = [
+                    'id' => $r['id'],
+                    'part_code' => $pCode,
+                    'part_name' => $r['part_name'],
+                    'total_ok_qty' => 0,
+                    'uom' => $r['uom'] ?? 'PCS',
+                    'last_mip_no' => $r['last_mip_no'] ?? '',
+                    'production_date' => $r['production_date'] ?? '',
+                    'locations' => []
+                ];
+            }
+            $groupedParts[$pCode]['total_ok_qty'] += floatval($r['total_ok_qty']);
+            $groupedParts[$pCode]['locations'][] = [
+                'rack' => $r['rack'] ?? 'RACK-A1',
+                'bin' => $r['bin'] ?? 'BIN-01',
+                'qty' => floatval($r['total_ok_qty']),
+                'uom' => $r['uom'] ?? 'PCS',
+                'last_mip' => $r['last_mip_no'] ?? '',
+                'date' => $r['production_date'] ?? ''
+            ];
+        }
+        $fgInventoryList = array_values($groupedParts);
+    } catch (PDOException $e) {
+        // Fallback
+    }
+
+    try {
+        $stmtLogs = $pdo->query("
+            SELECT id, inward_no, mip_no,
+                   CONVERT(VARCHAR(10), production_date, 120) as production_date,
+                   part_code, part_name, ok_qty, uom, rack, bin, qc_status,
+                   work_order, received_by, remarks,
+                   CONVERT(VARCHAR(19), created_at, 120) as created_at
+            FROM fg_inward_logs
+            ORDER BY id DESC
+        ");
+        if ($stmtLogs) {
+            $fgInwardLogsList = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } catch (PDOException $e) {
+        // Fallback
+    }
+}
 
 // Sample Dispatch logs data
 $dispatchSampleList = [
@@ -356,18 +493,28 @@ $dispatchSampleList = [
     ]
 ];
 
-// Calculated stats
+// Calculated stats based on real database records
 $totalStock = 0;
 $todayInward = 0;
 $totalDispatched = 0;
 $todayStr = date('Y-m-d');
 
-foreach ($fgSampleList as $item) {
-    $totalStock += floatval($item['available_stock']);
-    $totalDispatched += floatval($item['dispatched_qty']);
-    if ($item['inward_date'] === $todayStr) {
-        $todayInward += floatval($item['inward_qty']);
+foreach ($fgInventoryList as $item) {
+    $totalStock += floatval($item['total_ok_qty'] ?? 0);
+}
+
+foreach ($fgInwardLogsList as $item) {
+    $inDate = $item['production_date'] ?? '';
+    if (empty($inDate) && !empty($item['created_at'])) {
+        $inDate = substr($item['created_at'], 0, 10);
     }
+    if ($inDate === $todayStr) {
+        $todayInward += floatval($item['ok_qty'] ?? 0);
+    }
+}
+
+foreach ($dispatchSampleList as $item) {
+    $totalDispatched += floatval($item['dispatch_qty'] ?? 0);
 }
 
 $pageTitle = 'Finished Goods Store (FG Store)';
@@ -853,13 +1000,13 @@ $activeMenu = 'fg-store.php';
           <button type="button" class="tab-btn active" data-tab="tabInventory">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
             <span>FG Stock Inventory</span>
-            <span class="tab-count" id="countInventory"><?php echo count($fgSampleList); ?></span>
+            <span class="tab-count" id="countInventory"><?php echo count($fgInventoryList); ?></span>
           </button>
 
           <button type="button" class="tab-btn" data-tab="tabInwardLogs">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
             <span>Inward Logs</span>
-            <span class="tab-count" id="countInward"><?php echo count($fgSampleList); ?></span>
+            <span class="tab-count" id="countInward"><?php echo count($fgInwardLogsList); ?></span>
           </button>
 
           <button type="button" class="tab-btn" data-tab="tabDispatchLogs">
@@ -888,60 +1035,77 @@ $activeMenu = 'fg-store.php';
                 <thead>
                   <tr>
                     <th style="width: 60px; text-align: center;">Sr No.</th>
-                    <th style="min-width: 320px;">Part Code &amp; Name</th>
-                    <th style="width: 180px; text-align: center; white-space: nowrap;">Ok Qty</th>
+                    <th style="min-width: 280px;">Part Code &amp; Name</th>
+                    <th style="width: 210px; text-align: center; white-space: nowrap;">Location</th>
+                    <th style="width: 160px; text-align: center; white-space: nowrap;">Ok Qty</th>
                     <th style="width: 100px; text-align: center; white-space: nowrap;">Action</th>
                   </tr>
                 </thead>
                 <tbody id="fgTableBody">
-                  <?php $sr = 1; ?>
-                  <?php foreach ($fgSampleList as $item): ?>
-                    <tr data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                        data-inward_no="<?php echo htmlspecialchars($item['inward_no'] ?? $item['mip_no']); ?>"
-                        data-mip_no="<?php echo htmlspecialchars($item['mip_no'] ?? $item['batch_no']); ?>"
-                        data-inward_date="<?php echo htmlspecialchars($item['inward_date']); ?>"
-                        data-production_date="<?php echo htmlspecialchars($item['production_date'] ?? $item['inward_date']); ?>"
-                        data-part_code="<?php echo htmlspecialchars($item['part_code']); ?>"
-                        data-part_name="<?php echo htmlspecialchars($item['part_name']); ?>"
-                        data-batch_no="<?php echo htmlspecialchars($item['batch_no'] ?? $item['mip_no']); ?>"
-                        data-inward_qty="<?php echo htmlspecialchars($item['inward_qty'] ?? $item['ok_qty']); ?>"
-                        data-dispatched_qty="<?php echo htmlspecialchars($item['dispatched_qty'] ?? 0); ?>"
-                        data-available_stock="<?php echo htmlspecialchars($item['available_stock'] ?? $item['ok_qty']); ?>"
-                        data-ok_qty="<?php echo htmlspecialchars($item['ok_qty'] ?? $item['inward_qty']); ?>"
-                        data-uom="<?php echo htmlspecialchars($item['uom'] ?? 'PCS'); ?>"
-                        data-rack="<?php echo htmlspecialchars($item['rack'] ?? 'RACK-A1'); ?>"
-                        data-bin="<?php echo htmlspecialchars($item['bin'] ?? 'BIN-01'); ?>"
-                        data-location="<?php echo htmlspecialchars($item['location'] ?? (($item['rack'] ?? 'RACK-A1') . ' / ' . ($item['bin'] ?? 'BIN-01'))); ?>"
-                        data-work_order="<?php echo htmlspecialchars($item['work_order'] ?? ''); ?>"
-                        data-received_by="<?php echo htmlspecialchars($item['received_by'] ?? ''); ?>"
-                        data-status="<?php echo htmlspecialchars($item['status']); ?>"
-                        data-remarks="<?php echo htmlspecialchars($item['remarks'] ?? ''); ?>">
-                      
-                      <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $sr++; ?></td>
-                      
-                      <td>
-                        <div style="font-weight: 700; color: var(--text-main);">
-                          <?php echo htmlspecialchars($item['part_code']); ?> - <?php echo htmlspecialchars($item['part_name']); ?>
-                        </div>
-                      </td>
-                      
-                      <td style="text-align: center; white-space: nowrap;">
-                        <?php 
-                          $stockQty = $item['available_stock'] ?? $item['ok_qty'] ?? $item['inward_qty'];
-                          $badgeCls = 'in-stock';
-                          if ($stockQty <= 0) $badgeCls = 'zero-stock';
-                          elseif ($stockQty <= 35) $badgeCls = 'low-stock';
-                        ?>
-                        <span class="qty-badge <?php echo $badgeCls; ?>"><?php echo formatCleanStock($stockQty); ?> <?php echo htmlspecialchars($item['uom'] ?? 'PCS'); ?></span>
-                      </td>
-
-                      <td style="text-align: center; white-space: nowrap;">
-                        <div class="action-btns" style="justify-content: center;">
-                          <button type="button" class="btn-view" title="View Details">View</button>
-                        </div>
+                  <?php if (empty($fgInventoryList)): ?>
+                    <tr id="emptyFgRow">
+                      <td colspan="5" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
+                        No finished goods inventory recorded yet. Go to <strong>Inward Logs</strong> tab and click <strong>+ Inward FG</strong> to add stock.
                       </td>
                     </tr>
-                  <?php endforeach; ?>
+                  <?php else: ?>
+                    <?php $sr = 1; ?>
+                    <?php foreach ($fgInventoryList as $item): ?>
+                      <tr data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                          data-part_code="<?php echo htmlspecialchars($item['part_code']); ?>"
+                          data-part_name="<?php echo htmlspecialchars($item['part_name']); ?>"
+                          data-ok_qty="<?php echo htmlspecialchars($item['total_ok_qty']); ?>"
+                          data-available_stock="<?php echo htmlspecialchars($item['total_ok_qty']); ?>"
+                          data-uom="<?php echo htmlspecialchars($item['uom'] ?? 'PCS'); ?>"
+                          data-locations="<?php echo htmlspecialchars(json_encode($item['locations'] ?? []), ENT_QUOTES, 'UTF-8'); ?>"
+                          data-mip_no="<?php echo htmlspecialchars($item['last_mip_no'] ?? ''); ?>"
+                          data-inward_no="<?php echo htmlspecialchars($item['last_mip_no'] ?? ''); ?>"
+                          data-batch_no="<?php echo htmlspecialchars($item['last_mip_no'] ?? ''); ?>"
+                          data-production_date="<?php echo htmlspecialchars($item['production_date'] ?? ''); ?>"
+                          data-inward_date="<?php echo htmlspecialchars($item['production_date'] ?? ''); ?>"
+                          data-status="Available">
+                        
+                        <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $sr++; ?></td>
+                        
+                        <td>
+                          <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">
+                            <?php echo htmlspecialchars($item['part_code']); ?> - <?php echo htmlspecialchars($item['part_name']); ?>
+                          </div>
+                        </td>
+
+                        <td style="text-align: center; white-space: nowrap;">
+                          <?php $locCount = count($item['locations'] ?? []); ?>
+                          <?php if ($locCount > 1): ?>
+                            <span style="font-weight: 600; color: #4338ca; font-size: 0.88rem;">
+                              <?php echo $locCount; ?> Locations
+                            </span>
+                          <?php elseif ($locCount === 1): ?>
+                            <span style="font-weight: 600; color: #334155; font-size: 0.88rem;">
+                              <?php echo htmlspecialchars($item['locations'][0]['rack'] . ' / ' . $item['locations'][0]['bin']); ?>
+                            </span>
+                          <?php else: ?>
+                            <span style="color: #94a3b8; font-size: 0.88rem;">-</span>
+                          <?php endif; ?>
+                        </td>
+                        
+                        <td style="text-align: center; white-space: nowrap;">
+                          <?php 
+                            $stockQty = floatval($item['total_ok_qty']);
+                            $badgeCls = 'in-stock';
+                            if ($stockQty <= 0) $badgeCls = 'zero-stock';
+                            elseif ($stockQty <= 35) $badgeCls = 'low-stock';
+                          ?>
+                          <span class="qty-badge <?php echo $badgeCls; ?>"><?php echo formatCleanStock($stockQty); ?> <?php echo htmlspecialchars($item['uom'] ?? 'PCS'); ?></span>
+                        </td>
+
+                        <td style="text-align: center; white-space: nowrap;">
+                          <div class="action-btns" style="justify-content: center;">
+                            <button type="button" class="btn-view" title="View Storage Breakdown">View</button>
+                          </div>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
                 </tbody>
               </table>
             </div>
@@ -979,43 +1143,61 @@ $activeMenu = 'fg-store.php';
                   </tr>
                 </thead>
                 <tbody id="inwardTableBody">
-                  <?php $srIn = 1; ?>
-                  <?php foreach ($fgSampleList as $item): ?>
-                    <tr data-inward_no="<?php echo htmlspecialchars($item['inward_no']); ?>"
-                        data-mip_no="<?php echo htmlspecialchars($item['mip_no']); ?>"
-                        data-part_code="<?php echo htmlspecialchars($item['part_code']); ?>"
-                        data-batch_no="<?php echo htmlspecialchars($item['batch_no']); ?>">
-                      <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $srIn++; ?></td>
-                      <td style="white-space: nowrap;">
-                        <strong style="color: var(--text-main); font-size: 0.95rem;"><?php echo htmlspecialchars($item['mip_no']); ?></strong>
-                      </td>
-                      <td>
-                        <div style="font-weight: 700; color: var(--text-main);">
-                          <?php echo htmlspecialchars($item['part_code']); ?> - <?php echo htmlspecialchars($item['part_name']); ?>
-                        </div>
-                      </td>
-                      <td style="text-align: center; white-space: nowrap;">
-                        <span class="qty-badge neutral"><?php echo formatCleanStock($item['inward_qty']); ?> <?php echo htmlspecialchars($item['uom']); ?></span>
-                      </td>
-                      <td style="text-align: center; white-space: nowrap; font-weight: 600; color: var(--text-main);">
-                        <?php echo htmlspecialchars(formatDateDMY($item['production_date'] ?? $item['inward_date'])); ?>
-                      </td>
-                      <td style="white-space: nowrap;">
-                        <span class="batch-lot-code"><?php echo htmlspecialchars($item['rack'] ?? 'RACK-A1'); ?></span>
-                      </td>
-                      <td style="white-space: nowrap;">
-                        <span class="batch-lot-code"><?php echo htmlspecialchars($item['bin'] ?? 'BIN-01'); ?></span>
-                      </td>
-                      <td style="text-align: center; white-space: nowrap;">
-                        <span class="tag tag-passed">QC Passed</span>
-                      </td>
-                      <td style="text-align: center; white-space: nowrap;">
-                        <div class="action-btns">
-                          <button type="button" class="btn-print" onclick="printRowTag('<?php echo htmlspecialchars($item['inward_no']); ?>')">Print Tag</button>
-                        </div>
+                  <?php if (empty($fgInwardLogsList)): ?>
+                    <tr id="emptyInwardRow">
+                      <td colspan="9" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
+                        No inward logs recorded yet. Click <strong>+ Inward FG</strong> above to inward finished goods.
                       </td>
                     </tr>
-                  <?php endforeach; ?>
+                  <?php else: ?>
+                    <?php $srIn = 1; ?>
+                    <?php foreach ($fgInwardLogsList as $item): ?>
+                      <tr data-inward_no="<?php echo htmlspecialchars($item['inward_no']); ?>"
+                          data-mip_no="<?php echo htmlspecialchars($item['mip_no']); ?>"
+                          data-part_code="<?php echo htmlspecialchars($item['part_code']); ?>"
+                          data-part_name="<?php echo htmlspecialchars($item['part_name']); ?>"
+                          data-batch_no="<?php echo htmlspecialchars($item['mip_no']); ?>"
+                          data-inward_qty="<?php echo htmlspecialchars($item['ok_qty']); ?>"
+                          data-ok_qty="<?php echo htmlspecialchars($item['ok_qty']); ?>"
+                          data-uom="<?php echo htmlspecialchars($item['uom']); ?>"
+                          data-rack="<?php echo htmlspecialchars($item['rack'] ?? 'RACK-A1'); ?>"
+                          data-bin="<?php echo htmlspecialchars($item['bin'] ?? 'BIN-01'); ?>"
+                          data-location="<?php echo htmlspecialchars(($item['rack'] ?? 'RACK-A1') . ' / ' . ($item['bin'] ?? 'BIN-01')); ?>"
+                          data-work_order="<?php echo htmlspecialchars($item['work_order'] ?? ''); ?>"
+                          data-received_by="<?php echo htmlspecialchars($item['received_by'] ?? ''); ?>"
+                          data-remarks="<?php echo htmlspecialchars($item['remarks'] ?? ''); ?>">
+                        <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $srIn++; ?></td>
+                        <td style="white-space: nowrap;">
+                          <strong style="color: var(--text-main); font-size: 0.95rem;"><?php echo htmlspecialchars($item['mip_no']); ?></strong>
+                        </td>
+                        <td>
+                          <div style="font-weight: 700; color: var(--text-main);">
+                            <?php echo htmlspecialchars($item['part_code']); ?> - <?php echo htmlspecialchars($item['part_name']); ?>
+                          </div>
+                        </td>
+                        <td style="text-align: center; white-space: nowrap;">
+                          <span class="qty-badge neutral"><?php echo formatCleanStock($item['ok_qty']); ?> <?php echo htmlspecialchars($item['uom']); ?></span>
+                        </td>
+                        <td style="text-align: center; white-space: nowrap; font-weight: 600; color: var(--text-main);">
+                          <?php echo htmlspecialchars(formatDateDMY($item['production_date'])); ?>
+                        </td>
+                        <td style="white-space: nowrap;">
+                          <span class="batch-lot-code"><?php echo htmlspecialchars($item['rack'] ?? 'RACK-A1'); ?></span>
+                        </td>
+                        <td style="white-space: nowrap;">
+                          <span class="batch-lot-code"><?php echo htmlspecialchars($item['bin'] ?? 'BIN-01'); ?></span>
+                        </td>
+                        <td style="text-align: center; white-space: nowrap;">
+                          <span class="tag tag-passed"><?php echo htmlspecialchars($item['qc_status'] ?? 'QC Passed'); ?></span>
+                        </td>
+                        <td style="text-align: center; white-space: nowrap;">
+                          <div class="action-btns" style="justify-content: center;">
+                            <button type="button" class="btn-print" onclick="printRowTag('<?php echo htmlspecialchars($item['inward_no']); ?>')">Print Tag</button>
+                          </div>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
                 </tbody>
               </table>
             </div>
@@ -1658,8 +1840,8 @@ $activeMenu = 'fg-store.php';
         if (dispatchTableBody) document.getElementById('countDispatch').textContent = dispatchTableBody.querySelectorAll('tr').length;
       }
 
-      // Save Inward Form (Adds to Tab 1 & Tab 2)
-      inwardForm.addEventListener('submit', function(e) {
+      // Save Inward Form (Persists to database: fg_inward_logs and fg_inventory)
+      inwardForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         const partCode = document.getElementById('part_code').value;
         if (!partCode) {
@@ -1670,106 +1852,70 @@ $activeMenu = 'fg-store.php';
         const inNo = document.getElementById('inward_no').value;
         const inDate = document.getElementById('inward_date').value;
         const partName = document.getElementById('part_name').value;
-        const batchNo = document.getElementById('batch_no').value;
+        const batchNo = document.getElementById('batch_no').value || (scanMipInput ? scanMipInput.value.trim() : '');
         const inQty = parseFloat(document.getElementById('inward_qty').value) || 0;
         const uom = document.getElementById('uom').value || 'PCS';
-        const rackVal = (document.getElementById('inputRack')?.value || '').trim();
-        const binVal = (document.getElementById('inputBin')?.value || '').trim();
-        let loc = 'RACK-A1 / BIN-01';
-        if (rackVal && binVal) {
-          loc = `${rackVal} / ${binVal}`;
-        } else if (rackVal) {
-          loc = rackVal;
-        } else if (binVal) {
-          loc = binVal;
-        } else {
-          loc = document.getElementById('location').value || 'RACK-A1 / BIN-01';
-        }
-        document.getElementById('location').value = loc;
+        const rackVal = (document.getElementById('inputRack')?.value || 'RACK-A1').trim();
+        const binVal = (document.getElementById('inputBin')?.value || 'BIN-01').trim();
         const wo = document.getElementById('work_order').value;
         const recBy = document.getElementById('received_by').value;
         const remarks = document.getElementById('remarks').value;
 
-        // Date DMY
-        const dParts = inDate.split('-');
-        const dateDMY = dParts.length === 3 ? (dParts[2] + '-' + dParts[1] + '-' + dParts[0]) : inDate;
-
-        // Add to Tab 1 (Stock Inventory)
-        const newSr = fgTableBody.querySelectorAll('tr').length + 1;
-        const tr = document.createElement('tr');
-        tr.dataset.id = Date.now();
-        tr.dataset.inward_no = inNo;
-        tr.dataset.inward_date = inDate;
-        tr.dataset.part_code = partCode;
-        tr.dataset.part_name = partName;
-        tr.dataset.batch_no = batchNo;
-        tr.dataset.inward_qty = inQty;
-        tr.dataset.dispatched_qty = 0;
-        tr.dataset.available_stock = inQty;
-        tr.dataset.uom = uom;
-        tr.dataset.location = loc;
-        tr.dataset.work_order = wo;
-        tr.dataset.received_by = recBy;
-        tr.dataset.status = 'Available';
-        tr.dataset.remarks = remarks;
-
-        tr.innerHTML = `
-          <td style="color: var(--text-sub); font-weight: 600; text-align: center;">${newSr}</td>
-          <td>
-            <div style="font-weight: 700; color: var(--text-main);">${partCode} - ${partName}</div>
-          </td>
-          <td style="text-align: center; white-space: nowrap;">
-            <span class="qty-badge in-stock">${formatCleanStockJs(inQty)} ${uom}</span>
-          </td>
-          <td style="text-align: center; white-space: nowrap;">
-            <div class="action-btns" style="justify-content: center;">
-              <button type="button" class="btn-view" title="View Details">View</button>
-            </div>
-          </td>
-        `;
-
-        fgTableBody.prepend(tr);
-
-        // Add to Tab 2 (Inward Logs)
-        if (inwardTableBody) {
-          const inTr = document.createElement('tr');
-          const inSr = inwardTableBody.querySelectorAll('tr').length + 1;
-          inTr.innerHTML = `
-            <td style="color: var(--text-sub); font-weight: 600; text-align: center;">${inSr}</td>
-            <td style="white-space: nowrap;">
-              <strong style="color: var(--text-main); font-size: 0.95rem;">${batchNo}</strong>
-            </td>
-            <td>
-              <div style="font-weight: 700; color: var(--text-main);">${partCode} - ${partName}</div>
-            </td>
-            <td style="text-align: center; white-space: nowrap;">
-              <span class="qty-badge neutral">${formatCleanStockJs(inQty)} ${uom}</span>
-            </td>
-            <td style="text-align: center; white-space: nowrap; font-weight: 600; color: var(--text-main);">
-              ${dateDMY}
-            </td>
-            <td style="white-space: nowrap;">
-              <span class="batch-lot-code">${rackVal || 'RACK-A1'}</span>
-            </td>
-            <td style="white-space: nowrap;">
-              <span class="batch-lot-code">${binVal || 'BIN-01'}</span>
-            </td>
-            <td style="text-align: center; white-space: nowrap;">
-              <span class="tag tag-passed">QC Passed</span>
-            </td>
-            <td style="text-align: center; white-space: nowrap;">
-              <div class="action-btns">
-                <button type="button" class="btn-print" onclick="printRowTag('${inNo}')">Print Tag</button>
-              </div>
-            </td>
-          `;
-          inwardTableBody.prepend(inTr);
+        if (inQty <= 0) {
+          showToast('Inward quantity must be greater than zero.', 'error');
+          return;
         }
 
-        closeInwardModal();
-        recalculateStats();
-        attachRowEvents(tr);
-        showToast(`Finished goods inward saved successfully from ${batchNo}!`, 'success');
+        if (saveInwardBtn) {
+          saveInwardBtn.disabled = true;
+          saveInwardBtn.textContent = 'Saving Inward...';
+        }
+
+        const payload = {
+          inward_no: inNo,
+          inward_date: inDate,
+          mip_no: batchNo,
+          part_code: partCode,
+          part_name: partName,
+          inward_qty: inQty,
+          uom: uom,
+          rack: rackVal || 'RACK-A1',
+          bin: binVal || 'BIN-01',
+          work_order: wo,
+          received_by: recBy,
+          remarks: remarks
+        };
+
+        try {
+          const resp = await fetch('api/fg_store.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+          const res = await resp.json();
+
+          if (res.success) {
+            showToast('Finished goods inward saved successfully!', 'success');
+            closeInwardModal();
+            setTimeout(() => {
+              window.location.reload();
+            }, 600);
+          } else {
+            showToast(res.message || 'Error saving inward entry.', 'error');
+            if (saveInwardBtn) {
+              saveInwardBtn.disabled = false;
+              saveInwardBtn.textContent = 'Save Inward Entry';
+            }
+          }
+        } catch (err) {
+          showToast('Network error while saving: ' + err.message, 'error');
+          if (saveInwardBtn) {
+            saveInwardBtn.disabled = false;
+            saveInwardBtn.textContent = 'Save Inward Entry';
+          }
+        }
       });
 
       // Quick Dispatch Form Submission (Updates Tab 1, Adds to Tab 3)
@@ -1810,16 +1956,10 @@ $activeMenu = 'fg-store.php';
         currentActiveRow.dataset.status = status;
 
         // Update cell in Tab 1
-        const cells = currentActiveRow.querySelectorAll('td');
-        if (cells.length === 3 && cells[2]) {
-          cells[2].innerHTML = `<span class="qty-badge ${badgeCls}">${Math.round(newStock).toLocaleString()} ${currentActiveRow.dataset.uom || 'PCS'}</span>`;
-        } else {
-          if (cells[3]) {
-            cells[3].innerHTML = `<span class="qty-badge ${badgeCls}">${Math.round(newStock).toLocaleString()} ${currentActiveRow.dataset.uom || 'PCS'}</span>`;
-          }
-          if (cells[7]) {
-            cells[7].innerHTML = `<span class="tag ${tagCls}">${status}</span>`;
-          }
+        const qtyBadge = currentActiveRow.querySelector('.qty-badge');
+        if (qtyBadge) {
+          qtyBadge.className = `qty-badge ${badgeCls}`;
+          qtyBadge.textContent = `${formatCleanStockJs(newStock)} ${currentActiveRow.dataset.uom || 'PCS'}`;
         }
 
         // Disable dispatch button if zero stock
@@ -1945,50 +2085,84 @@ $activeMenu = 'fg-store.php';
         const dParts = (d.inward_date || '').split('-');
         const dateDMY = dParts.length === 3 ? (dParts[2] + '-' + dParts[1] + '-' + dParts[0]) : d.inward_date;
 
+        let locations = [];
+        try {
+          locations = JSON.parse(d.locations || '[]');
+        } catch (e) {
+          locations = [];
+        }
+
+        const totalQty = parseFloat(d.ok_qty || d.available_stock || 0);
+
+        let locationRowsHtml = '';
+        if (locations && locations.length > 0) {
+          locationRowsHtml = `
+            <div style="grid-column: 1 / -1; margin-top: 6px;">
+              <span style="font-size: 0.8rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 8px;">
+                Warehouse Storage Breakdown (${locations.length} Location${locations.length > 1 ? 's' : ''}):
+              </span>
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.83rem; background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+                <thead>
+                  <tr style="background: #f1f5f9; text-align: left; color: #475569; font-size: 0.78rem;">
+                    <th style="padding: 8px 12px; font-weight: 600;">Rack / Bin</th>
+                    <th style="padding: 8px 12px; font-weight: 600; text-align: right;">Quantity</th>
+                    <th style="padding: 8px 12px; font-weight: 600; text-align: center;">Last MIP</th>
+                    <th style="padding: 8px 12px; font-weight: 600; text-align: right;">Last Inward</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${locations.map(loc => `
+                    <tr style="border-top: 1px solid #e2e8f0;">
+                      <td style="padding: 8px 12px; font-weight: 600; color: #1e293b;">
+                        ${loc.rack} / ${loc.bin}
+                      </td>
+                      <td style="padding: 8px 12px; font-weight: 700; color: #059669; text-align: right;">
+                        ${formatCleanStockJs(loc.qty)} ${loc.uom || d.uom || 'PCS'}
+                      </td>
+                      <td style="padding: 8px 12px; text-align: center; color: #334155; font-weight: 600;">
+                        ${loc.last_mip || '-'}
+                      </td>
+                      <td style="padding: 8px 12px; text-align: right; color: #64748b;">
+                        ${loc.date ? (loc.date.split('-').length === 3 ? (loc.date.split('-')[2] + '-' + loc.date.split('-')[1] + '-' + loc.date.split('-')[0]) : loc.date) : '-'}
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
         viewModalContent.innerHTML = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 0.9rem;">
-            <div>
-              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">MIP No.</span>
-              <strong style="color: var(--primary); font-size: 1.05rem;">${d.mip_no || d.batch_no || d.inward_no}</strong>
-            </div>
-            <div>
-              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Production Date</span>
-              <strong>${dateDMY}</strong>
-            </div>
             <div style="grid-column: 1 / -1;">
               <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Finished Part</span>
-              <strong>${d.part_code}</strong> - ${d.part_name}
+              <strong style="font-size: 1.15rem; color: var(--text-main);">${d.part_code}</strong> - <span style="font-weight: 600; color: #334155;">${d.part_name}</span>
             </div>
             <div>
-              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Ok Quantity</span>
-              <strong style="font-size: 1.1rem; color: #059669;">${parseFloat(d.available_stock || d.inward_qty).toLocaleString()} ${d.uom}</strong>
+              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Total Available Stock</span>
+              <strong style="font-size: 1.25rem; color: #059669;">${formatCleanStockJs(totalQty)} ${d.uom || 'PCS'}</strong>
             </div>
             <div>
               <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Stock Status</span>
-              <strong>${d.status}</strong>
+              <span class="tag tag-available">Available</span>
             </div>
             <div>
-              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Rack</span>
-              <strong class="batch-lot-code">${d.rack || (d.location ? d.location.split('/')[0].trim() : 'RACK-A1')}</strong>
+              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Last Inward MIP</span>
+              <strong style="color: var(--primary); font-size: 0.95rem;">${d.mip_no || d.batch_no || d.inward_no || '-'}</strong>
             </div>
             <div>
-              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Bin</span>
-              <strong class="batch-lot-code">${d.bin || (d.location ? (d.location.split('/')[1] || '').trim() : 'BIN-01')}</strong>
+              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Last Inward Date</span>
+              <strong>${dateDMY || '-'}</strong>
             </div>
-            ${d.work_order ? `
-            <div>
-              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Work Order Ref.</span>
-              <strong>${d.work_order}</strong>
-            </div>` : ''}
-            ${d.received_by ? `
-            <div>
-              <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Received By</span>
-              <strong>${d.received_by}</strong>
-            </div>` : ''}
+
+            ${locationRowsHtml}
+
+            ${d.remarks ? `
             <div style="grid-column: 1 / -1;">
               <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Remarks</span>
-              <p style="margin: 3px 0 0 0; color: #475569;">${d.remarks || 'None'}</p>
-            </div>
+              <p style="margin: 3px 0 0 0; color: #475569;">${d.remarks}</p>
+            </div>` : ''}
           </div>
         `;
         viewModal.classList.add('active');
