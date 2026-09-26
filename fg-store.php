@@ -51,6 +51,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'search_mip') {
         $stmtSearch->execute([$q, $cleanQ]);
         $row = $stmtSearch->fetch(PDO::FETCH_ASSOC);
         if ($row && !empty($row['mip_no'])) {
+            // Check if this MIP has already been inwarded into FG Store
+            $stmtDupCheck = $pdo->prepare("
+                SELECT TOP 1 inward_no, created_at
+                FROM fg_inward_logs
+                WHERE LOWER(RTRIM(LTRIM(mip_no))) = LOWER(?)
+            ");
+            $stmtDupCheck->execute([$row['mip_no']]);
+            $dupRow = $stmtDupCheck->fetch(PDO::FETCH_ASSOC);
+            $row['already_inwarded'] = $dupRow ? true : false;
+            $row['inward_ref']       = $dupRow ? $dupRow['inward_no'] : null;
             echo json_encode(['success' => true, 'data' => $row]);
         } else {
             echo json_encode(['success' => false, 'message' => 'No record found for MIP: ' . $q]);
@@ -1680,6 +1690,14 @@ $activeMenu = 'fg-store.php';
       // Available Production Entries from production_entry table
       const availableProductionEntries = <?php echo json_encode($productionList, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
+      // Set of MIP numbers already inwarded into FG Store (for quick duplicate check)
+      const inwaredMipSet = new Set(
+        <?php echo json_encode(
+          array_values(array_filter(array_unique(array_column($fgInwardLogsList, 'mip_no')))),
+          JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        ); ?>.map(m => m.trim().toLowerCase())
+      );
+
       // 3 Tabs switching logic
       const tabBtns = document.querySelectorAll('.tab-btn');
       const tabPanes = document.querySelectorAll('.tab-pane');
@@ -1791,6 +1809,32 @@ $activeMenu = 'fg-store.php';
         const tblWrap = document.getElementById('fetchedMipTableWrap');
 
         if (match && match.mip_no) {
+
+          // ── Duplicate Inward check ────────────────────────────────────
+          // Check preloaded set (fast) OR server flag (after API fallback)
+          const mipLower = match.mip_no.trim().toLowerCase();
+          const isAlreadyInwarded = inwaredMipSet.has(mipLower) || (match.already_inwarded === true);
+
+          if (isAlreadyInwarded) {
+            const inwardRef = match.inward_ref ? ` (Ref: ${match.inward_ref})` : '';
+            showToast(
+              `MIP "${match.mip_no}" has already been inwarded into FG Store${inwardRef}. Duplicate inward is not allowed.`,
+              'error'
+            );
+            if (scanMipInput) {
+              scanMipInput.value = '';
+              scanMipInput.focus();
+            }
+            if (tblWrap) tblWrap.style.display = 'none';
+            if (saveInwardBtn) {
+              saveInwardBtn.disabled = true;
+              saveInwardBtn.style.opacity = '0.5';
+              saveInwardBtn.style.cursor = 'not-allowed';
+            }
+            return; // ── stop here ──
+          }
+          // ─────────────────────────────────────────────────────────────
+
           const okQty = parseFloat(match.ok_qty || 0);
           const pCode = match.part_code || '';
           const pName = match.part_name || pCode;

@@ -816,9 +816,15 @@ $pageTitle = 'Material Issue for Production (MIP)';
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary" id="cancelModalBtn">Cancel</button>
-          <button type="submit" class="btn-primary" id="saveSubmitBtn">+ Save Issue</button>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div id="modalShortageNotice" style="display: none; color: #dc2626; font-size: 0.82rem; font-weight: 600; align-items: center; gap: 6px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span id="modalShortageNoticeText">Child parts stock is insufficient — Save blocked!</span>
+          </div>
+          <div style="display: flex; gap: 8px; margin-left: auto;">
+            <button type="button" class="btn-secondary" id="cancelModalBtn">Cancel</button>
+            <button type="submit" class="btn-primary" id="saveSubmitBtn">+ Save Issue</button>
+          </div>
         </div>
       </form>
     </div>
@@ -1099,13 +1105,30 @@ $pageTitle = 'Material Issue for Production (MIP)';
 
       let pendingDeleteRow = null;
       let pendingDeleteId = null;
+      let currentShortages = 0;
+      let currentShortageList = [];
 
       // Function to render Child Parts Requirement based on selected part and issued qty
       function renderChildPartsRequirement() {
         const pCode = inputPartSelect.value;
+        const saveBtn = document.getElementById('saveSubmitBtn');
+        const modalShortageNotice = document.getElementById('modalShortageNotice');
+        const modalShortageNoticeText = document.getElementById('modalShortageNoticeText');
+
+        currentShortages = 0;
+        currentShortageList = [];
+
         if (!pCode) {
           childPartsSection.style.display = 'none';
           cpBomTableBody.innerHTML = '';
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '';
+            saveBtn.style.cursor = '';
+            saveBtn.style.pointerEvents = '';
+            saveBtn.title = '';
+          }
+          if (modalShortageNotice) modalShortageNotice.style.display = 'none';
           return;
         }
 
@@ -1130,6 +1153,14 @@ $pageTitle = 'Material Issue for Production (MIP)';
           document.getElementById('cpBomTable').style.display = 'none';
           cpBomEmpty.style.display = 'block';
           cpBomSummaryText.textContent = '';
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '';
+            saveBtn.style.cursor = '';
+            saveBtn.style.pointerEvents = '';
+            saveBtn.title = '';
+          }
+          if (modalShortageNotice) modalShortageNotice.style.display = 'none';
           return;
         }
 
@@ -1141,6 +1172,23 @@ $pageTitle = 'Material Issue for Production (MIP)';
         const hasValidQty = !isNaN(rawQty) && rawQty > 0;
         const multiplier = hasValidQty ? rawQty : 1;
         const uom = inputUom.value || 'NOS';
+
+        // Check if editing an existing record to credit back previously consumed stock
+        let oldConsumedMap = {};
+        if (editItemId && editItemId.value) {
+          const editRow = mipTableBody.querySelector(`tr[data-id="${editItemId.value}"]`);
+          if (editRow) {
+            try {
+              const oldDetails = JSON.parse(editRow.getAttribute('data-child_parts_details') || '[]');
+              if (Array.isArray(oldDetails)) {
+                oldDetails.forEach(d => {
+                  const dc = d.code || d.part_code;
+                  if (dc) oldConsumedMap[dc] = parseFloat(d.consumed_qty || 0);
+                });
+              }
+            } catch(e) {}
+          }
+        }
 
         let rowsHtml = '';
         let totalShortages = 0;
@@ -1159,45 +1207,107 @@ $pageTitle = 'Material Issue for Production (MIP)';
             stock = parseFloat(cp.stock);
           }
 
-          let stockVal = `${formatStock(stock)} ${cpUom}`;
-          let statusText = '';
+          const effectiveStock = stock + (oldConsumedMap[code] || 0);
+          let isShort = false;
+          let shortBy = 0;
+          let statusBadge = '';
 
           if (hasValidQty) {
-            if (stock >= totalReq) {
-              statusText = `<span style="color: #16a34a; font-weight: 500; white-space: nowrap;">Available</span>`;
-            } else {
+            if (effectiveStock < totalReq) {
+              isShort = true;
               totalShortages++;
-              const shortBy = totalReq - stock;
-              statusText = `<span style="color: #dc2626; font-weight: 500; white-space: nowrap;">Short (-${formatStock(shortBy)})</span>`;
+              shortBy = totalReq - effectiveStock;
+              currentShortageList.push(`${code} - ${name} (Short: ${formatStock(shortBy)} ${cpUom})`);
+              statusBadge = `<span style="display:inline-block; padding:3px 8px; border-radius:4px; font-weight:600; font-size:0.75rem; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; white-space:nowrap;">✕ Short (-${formatStock(shortBy)} ${cpUom})</span>`;
+            } else {
+              statusBadge = `<span style="display:inline-block; padding:3px 8px; border-radius:4px; font-weight:600; font-size:0.75rem; background:#dcfce7; color:#15803d; border:1px solid #86efac; white-space:nowrap;">✓ Available</span>`;
             }
           } else {
-            statusText = stock > 0
-              ? `<span style="color: #16a34a; font-weight: 500; white-space: nowrap;">In Stock</span>`
-              : `<span style="color: #64748b; white-space: nowrap;">-</span>`;
+            // Preview mode before quantity is typed: check against 1 unit BOM ratio
+            if (effectiveStock < bomRatio) {
+              isShort = true;
+              totalShortages++;
+              shortBy = bomRatio - effectiveStock;
+              currentShortageList.push(`${code} - ${name} (Stock: ${formatStock(effectiveStock)} ${cpUom})`);
+              statusBadge = `<span style="display:inline-block; padding:3px 8px; border-radius:4px; font-weight:600; font-size:0.75rem; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; white-space:nowrap;">${effectiveStock <= 0 ? '✕ Out of Stock (0)' : '✕ Short for 1 unit'}</span>`;
+            } else {
+              statusBadge = `<span style="display:inline-block; padding:3px 8px; border-radius:4px; font-weight:600; font-size:0.75rem; background:#dcfce7; color:#15803d; border:1px solid #86efac; white-space:nowrap;">In Stock</span>`;
+            }
           }
 
+          const rowBg = isShort ? 'background: #fff5f5;' : '';
+          const stockHtml = isShort
+            ? `<span style="color: #dc2626; font-weight: 700;">${formatStock(stock)} ${cpUom}</span>`
+            : `<span style="color: #15803d; font-weight: 600;">${formatStock(stock)} ${cpUom}</span>`;
+
           rowsHtml += `
-            <tr>
+            <tr style="${rowBg}">
               <td style="text-align: center; color: var(--text-sub); font-size: 0.78rem;">${idx + 1}</td>
-              <td><strong>${code}</strong> - ${name}</td>
+              <td><strong>${escapeHtml(code)}</strong> - ${escapeHtml(name)}</td>
               <td style="text-align: center; font-variant-numeric: tabular-nums;">${formatStock(bomRatio)} ${cpUom}</td>
-              <td style="text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; color: #2563eb;">${formatStock(totalReq)} ${cpUom}</td>
-              <td style="text-align: center; font-variant-numeric: tabular-nums; font-weight: 500;">${stockVal}</td>
-              <td style="text-align: center;">${statusText}</td>
+              <td style="text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; color: #2563eb;">${formatStock(totalReq)} ${cpUom}</td>
+              <td style="text-align: center; font-variant-numeric: tabular-nums;">${stockHtml}</td>
+              <td style="text-align: center;">${statusBadge}</td>
             </tr>
           `;
         });
 
         cpBomTableBody.innerHTML = rowsHtml;
+        currentShortages = totalShortages;
 
-        if (hasValidQty) {
-          if (totalShortages > 0) {
-            cpBomSummaryText.innerHTML = `<span style="color: #dc2626; font-weight: 600;">⚠️ Alert: ${totalShortages} child part(s) have stock shortage for ${formatStock(rawQty)} ${uom}.</span>`;
-          } else {
-            cpBomSummaryText.innerHTML = `<span style="color: #16a34a; font-weight: 600;">✓ Sufficient stock available for ${formatStock(rawQty)} ${uom}.</span>`;
+        if (totalShortages > 0) {
+          // Disable save button and display warning
+          if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.style.opacity = '0.45';
+            saveBtn.style.cursor = 'not-allowed';
+            saveBtn.style.pointerEvents = 'none';
+            saveBtn.title = 'Cannot Save: Child parts stock is insufficient';
           }
+          if (modalShortageNotice) {
+            modalShortageNotice.style.display = 'flex';
+            if (modalShortageNoticeText) {
+              modalShortageNoticeText.textContent = `${totalShortages} child part(s) short — Save blocked!`;
+            }
+          }
+
+          const qtyDesc = hasValidQty ? `${formatStock(rawQty)} ${uom}` : '1 unit';
+          cpBomSummaryText.innerHTML = `
+            <div style="margin-top: 10px; padding: 12px 14px; background: #fef2f2; border: 1.5px solid #f87171; border-radius: 8px; color: #991b1b; display: flex; align-items: flex-start; gap: 10px;">
+              <span style="font-size: 1.3rem; line-height: 1;">🚫</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 0.88rem; margin-bottom: 3px;">Material Issue Blocked: Insufficient Child Part Stock</div>
+                <div style="font-size: 0.82rem; line-height: 1.45; color: #b91c1c;">
+                  <strong>${totalShortages} child part(s)</strong> me required quantity (${qtyDesc}) ke anusaar stock kam hai. Production me material issue save karne ka option band kar diya gaya hai. Kripya pehle stock inward karein.
+                </div>
+              </div>
+            </div>
+          `;
         } else {
-          cpBomSummaryText.innerHTML = `Showing 1 unit BOM ratio. Enter Issued Quantity above to calculate total.`;
+          // Sufficient stock
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '';
+            saveBtn.style.cursor = '';
+            saveBtn.style.pointerEvents = '';
+            saveBtn.title = '';
+          }
+          if (modalShortageNotice) {
+            modalShortageNotice.style.display = 'none';
+          }
+
+          if (hasValidQty) {
+            cpBomSummaryText.innerHTML = `
+              <div style="margin-top: 10px; padding: 10px 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; color: #15803d; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.15rem; line-height: 1;">✓</span>
+                <div style="font-size: 0.82rem; font-weight: 600;">
+                  Sabhi child parts ka sufficient stock uplabdh hai (${formatStock(rawQty)} ${uom}). Issue save karne ke liye ready hai.
+                </div>
+              </div>
+            `;
+          } else {
+            cpBomSummaryText.innerHTML = `<span style="font-size: 0.82rem; color: #64748b;">Showing 1 unit BOM ratio. Enter Issued Quantity above to calculate total required.</span>`;
+          }
         }
       }
 
@@ -1221,6 +1331,19 @@ $pageTitle = 'Material Issue for Production (MIP)';
         editItemId.value = '';
         childPartsSection.style.display = 'none';
         cpBomTableBody.innerHTML = '';
+        cpBomSummaryText.innerHTML = '';
+        currentShortages = 0;
+        currentShortageList = [];
+        const saveBtn = document.getElementById('saveSubmitBtn');
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.style.opacity = '';
+          saveBtn.style.cursor = '';
+          saveBtn.style.pointerEvents = '';
+          saveBtn.title = '';
+        }
+        const modalShortageNotice = document.getElementById('modalShortageNotice');
+        if (modalShortageNotice) modalShortageNotice.style.display = 'none';
       }
 
       openAddModalBtn.addEventListener('click', async () => {
@@ -1240,6 +1363,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
         document.getElementById('inputReceivedBy').value = '';
         document.getElementById('inputStatus').value = 'Issued';
         inputPartSelect.value = '';
+        await refreshChildPartStock();
         renderChildPartsRequirement();
         openModal('+ Issue Material for Production');
       });
@@ -1281,6 +1405,12 @@ $pageTitle = 'Material Issue for Production (MIP)';
         }
         if (qty <= 0) {
           showToast('Issued quantity must be greater than 0.', 'error');
+          return;
+        }
+
+        // Hard validation: Block submission if there are any child part shortages
+        if (currentShortages > 0) {
+          showToast(`Cannot save issue: Child parts stock is insufficient (${currentShortageList.join(', ')}). Please replenish stock first.`, 'error');
           return;
         }
 
@@ -1817,6 +1947,9 @@ $pageTitle = 'Material Issue for Production (MIP)';
           document.getElementById('inputRemarks').value = row.getAttribute('data-remarks') || '';
           document.getElementById('inputReceivedBy').value = row.getAttribute('data-received_by') || '';
 
+          refreshChildPartStock().then(() => {
+            renderChildPartsRequirement();
+          });
           renderChildPartsRequirement();
           openModal('Edit Issue: ' + (row.getAttribute('data-issue_no') || ''));
           return;

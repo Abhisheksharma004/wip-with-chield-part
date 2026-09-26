@@ -28,7 +28,7 @@ if ($method === 'GET') {
         $stmt = $pdo->query("
             SELECT id, mip_no, work_order, part_code, part_name,
                    department, received_by, process_name, shift,
-                   target_qty, ok_qty, rework_qty, rejected_qty,
+                   target_qty, ok_qty, rejected_qty,
                    operator_name, uom, status,
                    CONVERT(VARCHAR(19), created_at, 120) as created_at
             FROM production_entry
@@ -100,7 +100,6 @@ if ($method === 'POST') {
     $shift = trim($data['shift'] ?? '');
     $targetQty = floatval($data['target_qty'] ?? 0);
     $okQty = floatval($data['ok_qty'] ?? 0);
-    $reworkQty = floatval($data['rework_qty'] ?? 0);
     $rejectedQty = floatval($data['rejected_qty'] ?? 0);
     $operatorName = trim($data['operator_name'] ?? '');
     $uom = trim($data['uom'] ?? 'PCS');
@@ -148,7 +147,6 @@ if ($method === 'POST') {
                     shift = ?,
                     target_qty = ?,
                     ok_qty = ?,
-                    rework_qty = ?,
                     rejected_qty = ?,
                     operator_name = ?,
                     uom = ?,
@@ -168,7 +166,6 @@ if ($method === 'POST') {
                 $shift,
                 $targetQty,
                 $okQty,
-                $reworkQty,
                 $rejectedQty,
                 $operatorName,
                 $uom,
@@ -191,7 +188,6 @@ if ($method === 'POST') {
                     'shift' => $shift,
                     'target_qty' => $targetQty,
                     'ok_qty' => $okQty,
-                    'rework_qty' => $reworkQty,
                     'rejected_qty' => $rejectedQty,
                     'operator_name' => $operatorName,
                     'uom' => $uom,
@@ -211,12 +207,12 @@ if ($method === 'POST') {
                 INSERT INTO production_entry (
                     mip_no, work_order, part_code, part_name,
                     department, received_by, process_name, shift,
-                    target_qty, ok_qty, rework_qty, rejected_qty,
+                    target_qty, ok_qty, rejected_qty,
                     operator_name, uom, status, created_at, updated_at
                 ) VALUES (
                     ?, ?, ?, ?,
                     ?, ?, ?, ?,
-                    ?, ?, ?, ?,
+                    ?, ?, ?,
                     ?, ?, ?, GETDATE(), GETDATE()
                 )
             ";
@@ -232,7 +228,6 @@ if ($method === 'POST') {
                 $shift,
                 $targetQty,
                 $okQty,
-                $reworkQty,
                 $rejectedQty,
                 $operatorName,
                 $uom,
@@ -256,7 +251,6 @@ if ($method === 'POST') {
                     'shift' => $shift,
                     'target_qty' => $targetQty,
                     'ok_qty' => $okQty,
-                    'rework_qty' => $reworkQty,
                     'rejected_qty' => $rejectedQty,
                     'operator_name' => $operatorName,
                     'uom' => $uom,

@@ -284,7 +284,35 @@ if ($method === 'POST') {
                 exit;
             }
 
-            // 3. Update material_issue
+            // 3. Validate child parts stock availability for updated quantities
+            $insufficientParts = [];
+            foreach ($childPartsSnapshot as $cd) {
+                $cQty = floatval($cd['consumed_qty'] ?? 0);
+                $cCode = trim($cd['code'] ?? '');
+                if ($cQty > 0 && !empty($cCode)) {
+                    $stkStmt = $pdo->prepare("SELECT part_name, current_stock, uom FROM child_part_master WHERE part_code = ?");
+                    $stkStmt->execute([$cCode]);
+                    $stkRow = $stkStmt->fetch(PDO::FETCH_ASSOC);
+                    $availStock = floatval($stkRow['current_stock'] ?? 0);
+                    if ($availStock < $cQty) {
+                        $cpName = !empty($stkRow['part_name']) ? $stkRow['part_name'] : ($cd['name'] ?? $cCode);
+                        $cpUom = !empty($stkRow['uom']) ? $stkRow['uom'] : ($cd['uom'] ?? 'NOS');
+                        $insufficientParts[] = "{$cCode} - {$cpName} (Required: {$cQty} {$cpUom}, Available: {$availStock} {$cpUom})";
+                    }
+                }
+            }
+
+            if (!empty($insufficientParts)) {
+                $pdo->rollBack();
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => "Production me update save nahi ho sakta: Child part ka stock kam hai! " . implode('; ', $insufficientParts)
+                ]);
+                exit;
+            }
+
+            // 4. Update material_issue
             $updStmt = $pdo->prepare("
                 UPDATE material_issue SET
                     issue_no = ?,
@@ -307,7 +335,7 @@ if ($method === 'POST') {
                 $workOrder, $department, $status, $remarks, $receivedBy, $childPartsJson, $id
             ]);
 
-            // 4. Deduct new child parts stock
+            // 5. Deduct new child parts stock
             $deductStmt = $pdo->prepare("
                 UPDATE child_part_master 
                 SET current_stock = CASE WHEN COALESCE(current_stock, 0) >= ? THEN current_stock - ? ELSE 0 END,
@@ -364,6 +392,33 @@ if ($method === 'POST') {
             if ($chkStmt->fetch()) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'message' => "Issue No '{$issueNo}' already exists. Please choose a unique Issue No."]);
+                exit;
+            }
+
+            // Validate child parts stock availability
+            $insufficientParts = [];
+            foreach ($childPartsSnapshot as $cd) {
+                $cQty = floatval($cd['consumed_qty'] ?? 0);
+                $cCode = trim($cd['code'] ?? '');
+                if ($cQty > 0 && !empty($cCode)) {
+                    $stkStmt = $pdo->prepare("SELECT part_name, current_stock, uom FROM child_part_master WHERE part_code = ?");
+                    $stkStmt->execute([$cCode]);
+                    $stkRow = $stkStmt->fetch(PDO::FETCH_ASSOC);
+                    $availStock = floatval($stkRow['current_stock'] ?? 0);
+                    if ($availStock < $cQty) {
+                        $cpName = !empty($stkRow['part_name']) ? $stkRow['part_name'] : ($cd['name'] ?? $cCode);
+                        $cpUom = !empty($stkRow['uom']) ? $stkRow['uom'] : ($cd['uom'] ?? 'NOS');
+                        $insufficientParts[] = "{$cCode} - {$cpName} (Required: {$cQty} {$cpUom}, Available: {$availStock} {$cpUom})";
+                    }
+                }
+            }
+
+            if (!empty($insufficientParts)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => "Production me issue save nahi ho sakta: Child part ka stock kam hai! " . implode('; ', $insufficientParts)
+                ]);
                 exit;
             }
 

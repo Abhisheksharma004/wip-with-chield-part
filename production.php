@@ -167,7 +167,6 @@ $yesterdaySqlDate = date('Y-m-d', strtotime('-1 day'));
 $productionList = [];
 $totalProducedOk = 0;
 $totalRejections = 0;
-$totalRework = 0;
 $todayOutput = 0;
 
 if ($pdo) {
@@ -175,7 +174,7 @@ if ($pdo) {
         $stmtPrd = $pdo->query("
             SELECT id, mip_no, work_order, part_code, part_name,
                    department, received_by, process_name, shift,
-                   target_qty, ok_qty, rework_qty, rejected_qty,
+                   target_qty, ok_qty, rejected_qty,
                    operator_name, uom, status,
                    CONVERT(VARCHAR(10), created_at, 120) as entry_date,
                    CONVERT(VARCHAR(19), created_at, 120) as created_at
@@ -189,7 +188,6 @@ if ($pdo) {
         foreach ($productionList as $item) {
             $totalProducedOk += floatval($item['ok_qty'] ?? 0);
             $totalRejections += floatval($item['rejected_qty'] ?? 0);
-            $totalRework += floatval($item['rework_qty'] ?? 0);
             if (($item['entry_date'] ?? '') === $todaySqlDate) {
                 $todayOutput += floatval($item['ok_qty'] ?? 0);
             }
@@ -201,7 +199,7 @@ if ($pdo) {
 
 // Aggregate Statistics
 $totalEntries = count($productionList);
-$totalInspected = $totalProducedOk + $totalRework + $totalRejections;
+$totalInspected = $totalProducedOk + $totalRejections;
 $yieldRate = $totalInspected > 0 ? round(($totalProducedOk / $totalInspected) * 100, 1) : 100.0;
 
 $pageTitle = 'Production Entry / Daily Production Report (DPR)';
@@ -273,17 +271,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
       font-size: 0.75rem;
     }
 
-    .badge-rework {
-      display: inline-block;
-      padding: 2px 7px;
-      font-weight: 600;
-      border-radius: 4px;
-      background: #fffbeb;
-      color: #d97706;
-      border: 1px solid #fde68a;
-      font-variant-numeric: tabular-nums;
-      font-size: 0.75rem;
-    }
+
 
     .badge-nil {
       color: #94a3b8;
@@ -687,8 +675,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                   <th style="white-space: nowrap;">Process &amp; Shift</th>
                   <th style="text-align: center; white-space: nowrap;">Target</th>
                   <th style="text-align: center; white-space: nowrap;">OK Qty</th>
-                  <th style="text-align: center; white-space: nowrap;">Rework</th>
-                  <th style="text-align: center; white-space: nowrap;">Rejected</th>
+                                    <th style="text-align: center; white-space: nowrap;">Rejected</th>
                   <th style="white-space: nowrap;">Operator</th>
                   <th style="text-align: center; white-space: nowrap;">Action</th>
                 </tr>
@@ -696,7 +683,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
               <tbody id="prdTableBody">
                 <?php if (empty($productionList)): ?>
                   <tr id="emptyTableRow">
-                    <td colspan="11" style="text-align: center; padding: 40px 20px; color: var(--text-sub);">
+                    <td colspan="10" style="text-align: center; padding: 40px 20px; color: var(--text-sub);">
                       No production entries found. Click <strong>+ Log Production</strong> to record shop-floor output.
                     </td>
                   </tr>
@@ -714,7 +701,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                         data-shift="<?php echo htmlspecialchars($item['shift']); ?>"
                         data-target_qty="<?php echo htmlspecialchars($item['target_qty']); ?>"
                         data-ok_qty="<?php echo htmlspecialchars($item['ok_qty']); ?>"
-                        data-rework_qty="<?php echo htmlspecialchars($item['rework_qty'] ?? 0); ?>"
                         data-rejected_qty="<?php echo htmlspecialchars($item['rejected_qty'] ?? 0); ?>"
                         data-operator_name="<?php echo htmlspecialchars($item['operator_name']); ?>"
                         data-uom="<?php echo htmlspecialchars($item['uom'] ?? 'PCS'); ?>"
@@ -740,13 +726,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                       <td style="text-align: center; font-variant-numeric: tabular-nums;"><?php echo formatCleanNum($item['target_qty']); ?></td>
                       <td style="text-align: center; font-variant-numeric: tabular-nums;">
                         <strong style="color: #059669;"><?php echo formatCleanNum($item['ok_qty']); ?></strong>
-                      </td>
-                      <td style="text-align: center; font-variant-numeric: tabular-nums;">
-                        <?php if (floatval($item['rework_qty'] ?? 0) > 0): ?>
-                          <strong style="color: #d97706;"><?php echo formatCleanNum($item['rework_qty']); ?></strong>
-                        <?php else: ?>
-                          <span style="color: #94a3b8;">-</span>
-                        <?php endif; ?>
                       </td>
                       <td style="text-align: center; font-variant-numeric: tabular-nums;">
                         <?php if (floatval($item['rejected_qty'] ?? 0) > 0): ?>
@@ -929,13 +908,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
               <input type="number" step="any" min="0" id="inputOkQty" class="form-control" required>
             </div>
 
-            <!-- 5. Rework Quantity -->
-            <div class="form-group">
-              <label for="inputReworkQty">Rework Qty</label>
-              <input type="number" step="any" min="0" id="inputReworkQty" class="form-control">
-            </div>
-
-            <!-- 6. Rejected Quantity -->
+            <!-- 5. Rejected Quantity -->
             <div class="form-group">
               <label for="inputRejectedQty">Rejected / Scrap Qty</label>
               <input type="number" step="any" min="0" id="inputRejectedQty" class="form-control">
@@ -1032,7 +1005,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
             <span style="font-size: 0.8rem; font-weight: 700; color: #059669;" id="vYieldRate">100% Yield</span>
           </div>
 
-          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; text-align: center;">
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center;">
             <div style="background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
               <div style="font-size: 0.68rem; color: #64748b; font-weight: 600;">TARGET</div>
               <div style="font-size: 1rem; font-weight: 700; color: #0f172a;" id="vTargetQty">0</div>
@@ -1040,10 +1013,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
             <div style="background: #ecfdf5; padding: 8px; border-radius: 4px; border: 1px solid #a7f3d0;">
               <div style="font-size: 0.68rem; color: #059669; font-weight: 600;">PRODUCED OK</div>
               <div style="font-size: 1rem; font-weight: 700; color: #059669;" id="vOkQty">0</div>
-            </div>
-            <div style="background: #fffbeb; padding: 8px; border-radius: 4px; border: 1px solid #fde68a;">
-              <div style="font-size: 0.68rem; color: #d97706; font-weight: 600;">REWORK</div>
-              <div style="font-size: 1rem; font-weight: 700; color: #d97706;" id="vReworkQty">0</div>
             </div>
             <div style="background: #fef2f2; padding: 8px; border-radius: 4px; border: 1px solid #fecaca;">
               <div style="font-size: 0.68rem; color: #dc2626; font-weight: 600;">REJECTED</div>
@@ -1186,7 +1155,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
       // Form calculation inputs
       const inputTargetQty = document.getElementById('inputTargetQty');
       const inputOkQty = document.getElementById('inputOkQty');
-      const inputReworkQty = document.getElementById('inputReworkQty');
       const inputRejectedQty = document.getElementById('inputRejectedQty');
       const inputUom = document.getElementById('inputUom');
 
@@ -1214,11 +1182,10 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
       function updateLiveYieldCalculation() {
         const target = parseFloat(inputTargetQty.value || 0);
         const ok = parseFloat(inputOkQty.value || 0);
-        const rework = parseFloat(inputReworkQty ? (inputReworkQty.value || 0) : 0);
         const rej = parseFloat(inputRejectedQty.value || 0);
         const uom = inputUom.value || 'PCS';
 
-        const totalInspected = ok + rework + rej;
+        const totalInspected = ok + rej;
         calcTotalInspected.textContent = `${formatNumber(totalInspected)} ${uom}`;
 
         if (target > 0) {
@@ -1247,7 +1214,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
 
       inputTargetQty.addEventListener('input', updateLiveYieldCalculation);
       inputOkQty.addEventListener('input', updateLiveYieldCalculation);
-      if (inputReworkQty) inputReworkQty.addEventListener('input', updateLiveYieldCalculation);
       inputRejectedQty.addEventListener('input', updateLiveYieldCalculation);
       if (inputUom) inputUom.addEventListener('change', updateLiveYieldCalculation);
 
@@ -1319,7 +1285,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         document.getElementById('inputOperator').value = '';
         document.getElementById('inputTargetQty').value = '';
         document.getElementById('inputOkQty').value = '';
-        if (document.getElementById('inputReworkQty')) document.getElementById('inputReworkQty').value = '';
         document.getElementById('inputRejectedQty').value = '';
         updateLiveYieldCalculation();
         openModal('+ Log Production Entry');
@@ -1480,6 +1445,36 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         const tblWrap = document.getElementById('fetchedMipTableWrap');
 
         if (match) {
+          // ── Duplicate MIP check ──────────────────────────────────────
+          // If we are in ADD mode (no editPrdId), block duplicate MIP no.
+          const currentEditId = editPrdId ? editPrdId.value : '';
+          const existingRows = prdTableBody ? prdTableBody.querySelectorAll('tr[data-mip_no]') : [];
+          let dupRow = null;
+          existingRows.forEach(r => {
+            const rowMip = (r.getAttribute('data-mip_no') || '').trim().toLowerCase();
+            const rowId  = (r.getAttribute('data-id') || '').trim();
+            if (rowMip && rowMip === match.issue_no.toLowerCase()) {
+              // Only flag as duplicate if this is NOT the row currently being edited
+              if (!currentEditId || rowId !== currentEditId) {
+                dupRow = r;
+              }
+            }
+          });
+
+          if (dupRow) {
+            showToast(
+              `MIP slip "${match.issue_no}" is already logged in production. Duplicate entries are not allowed.`,
+              'error'
+            );
+            if (scanMipInput) {
+              scanMipInput.value = '';
+              scanMipInput.focus();
+            }
+            if (tblWrap) tblWrap.style.display = 'none';
+            return; // ── stop here ──
+          }
+          // ─────────────────────────────────────────────────────────────
+
           // 1. Auto-fill Work Order
           if (match.work_order) {
             document.getElementById('inputWorkOrder').value = match.work_order;
@@ -1585,16 +1580,11 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         tr.setAttribute('data-shift', data.shift);
         tr.setAttribute('data-target_qty', data.target_qty);
         tr.setAttribute('data-ok_qty', data.ok_qty);
-        tr.setAttribute('data-rework_qty', data.rework_qty || 0);
         tr.setAttribute('data-rejected_qty', data.rejected_qty || 0);
         tr.setAttribute('data-operator_name', data.operator_name || '');
         tr.setAttribute('data-uom', data.uom || 'PCS');
         tr.setAttribute('data-status', data.status || 'Completed');
         tr.setAttribute('data-created_at', data.created_at ? data.created_at.substring(0, 10) : new Date().toISOString().substring(0, 10));
-
-        const reworkCell = parseFloat(data.rework_qty || 0) > 0
-          ? `<strong style="color: #d97706;">${formatNumber(data.rework_qty)}</strong>`
-          : `<span style="color: #94a3b8;">-</span>`;
 
         const rejCell = parseFloat(data.rejected_qty || 0) > 0
           ? `<strong style="color: #dc2626;">${formatNumber(data.rejected_qty)}</strong>`
@@ -1623,7 +1613,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           <td style="text-align: center; font-variant-numeric: tabular-nums;">
             <strong style="color: #059669;">${formatNumber(data.ok_qty)}</strong>
           </td>
-          <td style="text-align: center; font-variant-numeric: tabular-nums;">${reworkCell}</td>
           <td style="text-align: center; font-variant-numeric: tabular-nums;">${rejCell}</td>
           <td style="white-space: nowrap;">
             <span style="font-weight: 600; color: #1e293b;">${escapeHtml(data.operator_name || '-')}</span>
@@ -1659,7 +1648,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
         const processName = document.getElementById('inputProcess').value;
         const targetQty = parseFloat(document.getElementById('inputTargetQty').value || 0);
         const okQty = parseFloat(document.getElementById('inputOkQty').value || 0);
-        const reworkQty = parseFloat(document.getElementById('inputReworkQty') ? document.getElementById('inputReworkQty').value || 0 : 0);
         const rejectedQty = parseFloat(document.getElementById('inputRejectedQty').value || 0);
         const operatorName = document.getElementById('inputOperator').value.trim();
         const uom = document.getElementById('inputUom').value || 'PCS';
@@ -1695,7 +1683,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           shift: shift,
           target_qty: targetQty,
           ok_qty: okQty,
-          rework_qty: reworkQty,
           rejected_qty: rejectedQty,
           operator_name: operatorName,
           uom: uom,
@@ -1768,7 +1755,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           operatorName: row.getAttribute('data-operator_name') || '',
           targetQty: parseFloat(row.getAttribute('data-target_qty') || 0),
           okQty: parseFloat(row.getAttribute('data-ok_qty') || 0),
-          reworkQty: parseFloat(row.getAttribute('data-rework_qty') || 0),
           rejectedQty: parseFloat(row.getAttribute('data-rejected_qty') || 0),
           uom: row.getAttribute('data-uom') || 'PCS',
           status: row.getAttribute('data-status') || 'Completed',
@@ -1808,14 +1794,13 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           document.getElementById('vReceivedBy').textContent = data.receivedBy || '-';
         }
 
-        const totalInsp = data.okQty + (data.reworkQty || 0) + data.rejectedQty;
+        const totalInsp = data.okQty + data.rejectedQty;
         const yieldPercent = totalInsp > 0 ? ((data.okQty / totalInsp) * 100).toFixed(1) : 100.0;
         const achPercent = data.targetQty > 0 ? Math.round((data.okQty / data.targetQty) * 100) : 0;
 
         document.getElementById('vYieldRate').textContent = `${yieldPercent}% Yield`;
         document.getElementById('vTargetQty').textContent = `${formatNumber(data.targetQty)} ${data.uom}`;
         document.getElementById('vOkQty').textContent = `${formatNumber(data.okQty)} ${data.uom}`;
-        document.getElementById('vReworkQty').textContent = `${formatNumber(data.reworkQty || 0)} ${data.uom}`;
         document.getElementById('vRejectedQty').textContent = `${formatNumber(data.rejectedQty)} ${data.uom}`;
         document.getElementById('vAchievedRate').textContent = `${achPercent}%`;
 
@@ -1872,7 +1857,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
 
       // Print Production Slip (A4 Portrait)
       function printProductionSlip(data) {
-        const totalInsp = data.okQty + (data.reworkQty || 0) + data.rejectedQty;
+        const totalInsp = data.okQty + data.rejectedQty;
         const yieldPercent = totalInsp > 0 ? ((data.okQty / totalInsp) * 100).toFixed(1) : 100.0;
         const achPercent = data.targetQty > 0 ? Math.round((data.okQty / data.targetQty) * 100) : 0;
 
@@ -2078,7 +2063,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                 <tr>
                   <th>Target / Planned</th>
                   <th>Produced (OK Qty)</th>
-                  <th>Rework Qty</th>
                   <th>Rejected / Scrap</th>
                   <th>Total Inspected</th>
                   <th>Quality Yield %</th>
@@ -2089,7 +2073,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                 <tr>
                   <td>${formatNumber(data.targetQty)} ${escapeHtml(data.uom)}</td>
                   <td style="color:#059669;">${formatNumber(data.okQty)} ${escapeHtml(data.uom)}</td>
-                  <td style="color:#d97706;">${formatNumber(data.reworkQty || 0)} ${escapeHtml(data.uom)}</td>
                   <td style="color:${data.rejectedQty > 0 ? '#dc2626' : '#64748b'};">${formatNumber(data.rejectedQty)} ${escapeHtml(data.uom)}</td>
                   <td>${formatNumber(totalInsp)} ${escapeHtml(data.uom)}</td>
                   <td style="color:#059669;">${yieldPercent}%</td>
@@ -2205,9 +2188,6 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           document.getElementById('inputOperator').value = row.getAttribute('data-operator_name') || '';
           document.getElementById('inputTargetQty').value = row.getAttribute('data-target_qty') || '';
           document.getElementById('inputOkQty').value = row.getAttribute('data-ok_qty') || '';
-          if (document.getElementById('inputReworkQty')) {
-            document.getElementById('inputReworkQty').value = row.getAttribute('data-rework_qty') || '0';
-          }
           document.getElementById('inputRejectedQty').value = row.getAttribute('data-rejected_qty') || '0';
           document.getElementById('inputUom').value = row.getAttribute('data-uom') || 'PCS';
           document.getElementById('inputStatus').value = row.getAttribute('data-status') || 'Completed';
@@ -2318,26 +2298,23 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
       function updateCounters() {
         const rows = prdTableBody.querySelectorAll('tr:not(#emptyTableRow)');
         let sumOk = 0;
-        let sumRework = 0;
         let sumRej = 0;
         let todayOk = 0;
         const todaySqlStr = '<?php echo $todaySqlDate; ?>';
 
         rows.forEach(r => {
           const ok = parseFloat(r.getAttribute('data-ok_qty') || 0);
-          const rework = parseFloat(r.getAttribute('data-rework_qty') || 0);
           const rej = parseFloat(r.getAttribute('data-rejected_qty') || 0);
           const pDate = r.getAttribute('data-created_at') || '';
 
           sumOk += ok;
-          sumRework += rework;
           sumRej += rej;
           if (pDate === todaySqlStr) {
             todayOk += ok;
           }
         });
 
-        const totalInsp = sumOk + sumRework + sumRej;
+        const totalInsp = sumOk + sumRej;
         const yRate = totalInsp > 0 ? ((sumOk / totalInsp) * 100).toFixed(1) : 100.0;
 
         document.getElementById('statTotalProduced').innerHTML = `${formatNumber(sumOk)} <span style="font-size:0.85rem; font-weight:500; color:var(--text-sub);">PCS</span>`;
