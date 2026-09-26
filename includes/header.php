@@ -19,6 +19,7 @@ if (!isset($pageTitle)) {
         'child-part-in.php' => 'Child Part Inward',
         'mip.php' => 'Material Issue for Production (MIP)',
         'production.php' => 'Production Entry / DPR',
+        'fg-store.php' => 'Finished Goods Store (FG Store)',
     ];
     $pageTitle = $pageTitles[$script] ?? 'WIP Management';
 }
