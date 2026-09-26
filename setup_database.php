@@ -328,13 +328,11 @@ try {
             part_name NVARCHAR(150) NOT NULL,
             total_ok_qty DECIMAL(18, 3) NOT NULL DEFAULT 0.000,
             uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
-            rack NVARCHAR(50) NOT NULL DEFAULT 'RACK-A1',
-            bin NVARCHAR(50) NOT NULL DEFAULT 'BIN-01',
             last_mip_no NVARCHAR(50) NULL,
             last_production_date DATE NULL,
             created_at DATETIME DEFAULT GETDATE(),
             updated_at DATETIME DEFAULT GETDATE(),
-            CONSTRAINT UQ_fg_inv_part_rack_bin UNIQUE (part_code, rack, bin)
+            CONSTRAINT UQ_fg_inv_part_code UNIQUE (part_code)
         );
     END
     ";
@@ -354,8 +352,6 @@ try {
             part_name NVARCHAR(150) NOT NULL,
             ok_qty DECIMAL(18, 3) NOT NULL,
             uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
-            rack NVARCHAR(50) NULL DEFAULT 'RACK-A1',
-            bin NVARCHAR(50) NULL DEFAULT 'BIN-01',
             qc_status NVARCHAR(50) DEFAULT 'QC Passed',
             work_order NVARCHAR(100) NULL,
             received_by NVARCHAR(150) NULL,
@@ -366,6 +362,30 @@ try {
     ";
     $pdoApp->exec($createFgInwardLogsTableSql);
     echo "[OK] 'fg_inward_logs' table is ready.\n";
+
+    // Create fg_dispatch_logs Table (Dispatch and outward transaction logs)
+    $createFgDispatchLogsTableSql = "
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='fg_dispatch_logs' AND xtype='U')
+    BEGIN
+        CREATE TABLE fg_dispatch_logs (
+            id INT IDENTITY(1,1) PRIMARY KEY,
+            dispatch_no NVARCHAR(50) NOT NULL,
+            dispatch_date DATE NOT NULL,
+            invoice_ref NVARCHAR(100) NOT NULL,
+            part_code NVARCHAR(50) NOT NULL,
+            part_name NVARCHAR(150) NOT NULL,
+            batch_no NVARCHAR(50) NULL,
+            dispatch_qty DECIMAL(18, 3) NOT NULL,
+            uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
+            customer NVARCHAR(200) NOT NULL,
+            dispatched_by NVARCHAR(150) NOT NULL,
+            remarks NVARCHAR(500) NULL,
+            created_at DATETIME DEFAULT GETDATE()
+        );
+    END
+    ";
+    $pdoApp->exec($createFgDispatchLogsTableSql);
+    echo "[OK] 'fg_dispatch_logs' table is ready.\n";
 } catch (PDOException $e) {
     die("[ERROR] Failed to create tables: " . $e->getMessage() . "\n");
 }

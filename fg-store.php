@@ -73,13 +73,11 @@ if ($pdo) {
                     part_name NVARCHAR(150) NOT NULL,
                     total_ok_qty DECIMAL(18, 3) NOT NULL DEFAULT 0.000,
                     uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
-                    rack NVARCHAR(50) NOT NULL DEFAULT 'RACK-A1',
-                    bin NVARCHAR(50) NOT NULL DEFAULT 'BIN-01',
                     last_mip_no NVARCHAR(50) NULL,
                     last_production_date DATE NULL,
                     created_at DATETIME DEFAULT GETDATE(),
                     updated_at DATETIME DEFAULT GETDATE(),
-                    CONSTRAINT UQ_fg_inv_part_rack_bin UNIQUE (part_code, rack, bin)
+                    CONSTRAINT UQ_fg_inv_part_code UNIQUE (part_code)
                 );
             END
 
@@ -94,11 +92,28 @@ if ($pdo) {
                     part_name NVARCHAR(150) NOT NULL,
                     ok_qty DECIMAL(18, 3) NOT NULL,
                     uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
-                    rack NVARCHAR(50) NULL DEFAULT 'RACK-A1',
-                    bin NVARCHAR(50) NULL DEFAULT 'BIN-01',
                     qc_status NVARCHAR(50) DEFAULT 'QC Passed',
                     work_order NVARCHAR(100) NULL,
                     received_by NVARCHAR(150) NULL,
+                    remarks NVARCHAR(500) NULL,
+                    created_at DATETIME DEFAULT GETDATE()
+                );
+            END
+
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='fg_dispatch_logs' AND xtype='U')
+            BEGIN
+                CREATE TABLE fg_dispatch_logs (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    dispatch_no NVARCHAR(50) NOT NULL,
+                    dispatch_date DATE NOT NULL,
+                    invoice_ref NVARCHAR(100) NOT NULL,
+                    part_code NVARCHAR(50) NOT NULL,
+                    part_name NVARCHAR(150) NOT NULL,
+                    batch_no NVARCHAR(50) NULL,
+                    dispatch_qty DECIMAL(18, 3) NOT NULL,
+                    uom NVARCHAR(20) NOT NULL DEFAULT 'PCS',
+                    customer NVARCHAR(200) NOT NULL,
+                    dispatched_by NVARCHAR(150) NOT NULL,
                     remarks NVARCHAR(500) NULL,
                     created_at DATETIME DEFAULT GETDATE()
                 );
@@ -110,8 +125,8 @@ if ($pdo) {
 }
 
 // Live AJAX API handler for Saving Inward Finished Goods
-if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['action'] === 'save_inward') ||
-    ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_inward')) {
+if (((($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && isset($_GET['action']) && $_GET['action'] === 'save_inward') ||
+    ((($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && isset($_POST['action']) && $_POST['action'] === 'save_inward')) {
     header('Content-Type: application/json; charset=utf-8');
     if (!$pdo) {
         echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
@@ -130,8 +145,6 @@ if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['a
     $partName = trim($postData['part_name'] ?? '');
     $okQty = floatval($postData['inward_qty'] ?? $postData['ok_qty'] ?? 0);
     $uom = trim($postData['uom'] ?? 'PCS');
-    $rack = trim($postData['rack'] ?? 'RACK-A1');
-    $bin = trim($postData['bin'] ?? 'BIN-01');
     $prodDate = trim($postData['inward_date'] ?? $postData['production_date'] ?? date('Y-m-d'));
     $workOrder = trim($postData['work_order'] ?? '');
     $receivedBy = trim($postData['received_by'] ?? '');
@@ -155,9 +168,9 @@ if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['a
         // 1. Insert into fg_inward_logs (individual inward transaction log)
         $stmtLog = $pdo->prepare("
             INSERT INTO fg_inward_logs 
-                (inward_no, mip_no, production_date, part_code, part_name, ok_qty, uom, rack, bin, qc_status, work_order, received_by, remarks, created_at)
+                (inward_no, mip_no, production_date, part_code, part_name, ok_qty, uom, qc_status, work_order, received_by, remarks, created_at)
             VALUES 
-                (?, ?, ?, ?, ?, ?, ?, ?, ?, 'QC Passed', ?, ?, ?, GETDATE())
+                (?, ?, ?, ?, ?, ?, ?, 'QC Passed', ?, ?, ?, GETDATE())
         ");
         $stmtLog->execute([
             $inwardNo,
@@ -167,20 +180,18 @@ if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['a
             $partName,
             $okQty,
             $uom,
-            $rack,
-            $bin,
             $workOrder,
             $receivedBy,
             $remarks
         ]);
 
-        // 2. Check if this part already exists in THIS specific rack & bin
-        $stmtCheck = $pdo->prepare("SELECT id, total_ok_qty FROM fg_inventory WHERE part_code = ? AND rack = ? AND bin = ?");
-        $stmtCheck->execute([$partCode, $rack, $bin]);
+        // 2. Check if this part already exists in fg_inventory
+        $stmtCheck = $pdo->prepare("SELECT id, total_ok_qty FROM fg_inventory WHERE part_code = ?");
+        $stmtCheck->execute([$partCode]);
         $existing = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
         if ($existing) {
-            // Part exists in this specific location: accumulate quantity
+            // Accumulate quantity
             $stmtUpd = $pdo->prepare("
                 UPDATE fg_inventory 
                 SET total_ok_qty = total_ok_qty + ?,
@@ -189,7 +200,7 @@ if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['a
                     last_mip_no = ?,
                     last_production_date = ?,
                     updated_at = GETDATE()
-                WHERE id = ?
+                WHERE part_code = ?
             ");
             $stmtUpd->execute([
                 $okQty,
@@ -197,35 +208,27 @@ if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['a
                 $uom,
                 $mipNo,
                 !empty($prodDate) ? $prodDate : null,
-                $existing['id']
+                $partCode
             ]);
-            $locationTotal = floatval($existing['total_ok_qty']) + $okQty;
+            $updatedTotal = floatval($existing['total_ok_qty']) + $okQty;
         } else {
-            // New rack/bin for this part: insert new location row
+            // New part: insert new row
             $stmtIns = $pdo->prepare("
                 INSERT INTO fg_inventory 
-                    (part_code, part_name, total_ok_qty, uom, rack, bin, last_mip_no, last_production_date, created_at, updated_at)
+                    (part_code, part_name, total_ok_qty, uom, last_mip_no, last_production_date, created_at, updated_at)
                 VALUES 
-                    (?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
+                    (?, ?, ?, ?, ?, ?, GETDATE(), GETDATE())
             ");
             $stmtIns->execute([
                 $partCode,
                 $partName,
                 $okQty,
                 $uom,
-                $rack,
-                $bin,
                 $mipNo,
                 !empty($prodDate) ? $prodDate : null
             ]);
-            $locationTotal = $okQty;
+            $updatedTotal = $okQty;
         }
-
-        // Calculate consolidated total stock across all locations for this part
-        $stmtSum = $pdo->prepare("SELECT SUM(total_ok_qty) as overall_total FROM fg_inventory WHERE part_code = ?");
-        $stmtSum->execute([$partCode]);
-        $sumRow = $stmtSum->fetch(PDO::FETCH_ASSOC);
-        $updatedTotal = floatval($sumRow['overall_total'] ?? $locationTotal);
 
         $pdo->commit();
 
@@ -238,10 +241,163 @@ if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action']) && $_GET['a
                 'added_qty' => $okQty,
                 'total_qty' => $updatedTotal,
                 'uom' => $uom,
-                'rack' => $rack,
-                'bin' => $bin,
                 'inward_no' => $inwardNo,
                 'mip_no' => $mipNo
+            ]
+        ]);
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Live AJAX API handler for Saving Finished Goods Dispatch
+if (((($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && isset($_GET['action']) && $_GET['action'] === 'save_dispatch') ||
+    ((($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && isset($_POST['action']) && $_POST['action'] === 'save_dispatch')) {
+    header('Content-Type: application/json; charset=utf-8');
+    if (!$pdo) {
+        echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
+        exit;
+    }
+
+    $rawInput = file_get_contents('php://input');
+    $postData = json_decode($rawInput, true);
+    if (!is_array($postData) || empty($postData)) {
+        $postData = $_POST;
+    }
+
+    $dispatchNo = trim($postData['dispatch_no'] ?? '');
+    $dispatchDate = trim($postData['dispatch_date'] ?? date('Y-m-d'));
+    $invoiceRef = trim($postData['invoice_ref'] ?? '');
+    $customer = trim($postData['customer'] ?? '');
+    $dispatchedBy = trim($postData['dispatched_by'] ?? '');
+    $remarks = trim($postData['remarks'] ?? '');
+
+    if (empty($dispatchNo)) {
+        $dispatchNo = 'DSP-' . date('Y') . '-' . rand(100, 999);
+    }
+
+    if (empty($invoiceRef)) {
+        echo json_encode(['success' => false, 'message' => 'Invoice / DC reference is required.']);
+        exit;
+    }
+
+    if (empty($customer)) {
+        echo json_encode(['success' => false, 'message' => 'Customer name is required.']);
+        exit;
+    }
+
+    $rawItems = $postData['items'] ?? [];
+    if (!is_array($rawItems) || empty($rawItems)) {
+        if (!empty($postData['part_code'])) {
+            $rawItems = [$postData];
+        }
+    }
+
+    if (empty($rawItems)) {
+        echo json_encode(['success' => false, 'message' => 'Please add at least one finished part to dispatch.']);
+        exit;
+    }
+
+    // 1. Validate all items before beginning transaction
+    $validatedItems = [];
+    foreach ($rawItems as $idx => $it) {
+        $pCode = trim($it['part_code'] ?? '');
+        $dQty = floatval($it['dispatch_qty'] ?? 0);
+        $rowNum = $idx + 1;
+
+        if (empty($pCode)) {
+            echo json_encode(['success' => false, 'message' => "Item #{$rowNum}: Finished part must be selected."]);
+            exit;
+        }
+        if ($dQty <= 0) {
+            echo json_encode(['success' => false, 'message' => "Item #{$rowNum} ({$pCode}): Dispatch quantity must be greater than zero."]);
+            exit;
+        }
+
+        $stmtCheck = $pdo->prepare("
+            SELECT id, part_name, total_ok_qty, uom, last_mip_no
+            FROM fg_inventory 
+            WHERE part_code = ?
+        ");
+        $stmtCheck->execute([$pCode]);
+        $invRow = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+        if (!$invRow) {
+            echo json_encode(['success' => false, 'message' => "Item #{$rowNum}: Part {$pCode} is not available in inventory."]);
+            exit;
+        }
+
+        $availableQty = floatval($invRow['total_ok_qty']);
+        if ($dQty > $availableQty) {
+            echo json_encode([
+                'success' => false, 
+                'message' => "Item #{$rowNum} ({$pCode}): Dispatch qty ({$dQty}) cannot exceed available stock ({$availableQty})."
+            ]);
+            exit;
+        }
+
+        $validatedItems[] = [
+            'inv_id' => $invRow['id'],
+            'part_code' => $pCode,
+            'part_name' => !empty($it['part_name']) ? trim($it['part_name']) : $invRow['part_name'],
+            'dispatch_qty' => $dQty,
+            'uom' => !empty($it['uom']) ? trim($it['uom']) : ($invRow['uom'] ?? 'PCS'),
+            'batch_no' => !empty($it['batch_no']) ? trim($it['batch_no']) : ($invRow['last_mip_no'] ?? ''),
+            'available_qty' => $availableQty
+        ];
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        $dispatchedCount = count($validatedItems);
+
+        foreach ($validatedItems as $item) {
+            // 1. Insert into fg_dispatch_logs
+            $stmtLog = $pdo->prepare("
+                INSERT INTO fg_dispatch_logs 
+                    (dispatch_no, dispatch_date, invoice_ref, part_code, part_name, batch_no, dispatch_qty, uom, customer, dispatched_by, remarks, created_at)
+                VALUES 
+                    (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+            ");
+            $stmtLog->execute([
+                $dispatchNo,
+                $dispatchDate,
+                $invoiceRef,
+                $item['part_code'],
+                $item['part_name'],
+                $item['batch_no'],
+                $item['dispatch_qty'],
+                $item['uom'],
+                $customer,
+                $dispatchedBy,
+                $remarks
+            ]);
+
+            // 2. Deduct stock directly from part inventory
+            $newStock = $item['available_qty'] - $item['dispatch_qty'];
+            if ($newStock < 0) $newStock = 0;
+
+            $stmtUpd = $pdo->prepare("
+                UPDATE fg_inventory 
+                SET total_ok_qty = ?, updated_at = GETDATE()
+                WHERE part_code = ?
+            ");
+            $stmtUpd->execute([$newStock, $item['part_code']]);
+        }
+
+        $pdo->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => "Dispatch successful! {$dispatchedCount} part(s) dispatched under {$dispatchNo}.",
+            'data' => [
+                'dispatch_no' => $dispatchNo,
+                'items_count' => $dispatchedCount
             ]
         ]);
     } catch (PDOException $e) {
@@ -369,48 +525,22 @@ if (!$pdo && empty($productionList)) {
     ];
 }
 
-// Fetch real FG Inventory (Tab 1: Part-wise accumulated stock) and Inward Logs (Tab 2)
+// Fetch real FG Inventory (Tab 1), Inward Logs (Tab 2), and Dispatch Logs (Tab 3)
 $fgInventoryList = [];
 $fgInwardLogsList = [];
+$fgDispatchLogsList = [];
 
 if ($pdo) {
     try {
         $stmtInv = $pdo->query("
-            SELECT id, part_code, part_name, total_ok_qty, uom, rack, bin, 
+            SELECT id, part_code, part_name, total_ok_qty, uom,
                    last_mip_no,
                    CONVERT(VARCHAR(10), last_production_date, 120) as production_date,
                    CONVERT(VARCHAR(19), updated_at, 120) as updated_at
             FROM fg_inventory
-            ORDER BY part_code ASC, rack ASC, bin ASC
+            ORDER BY part_code ASC
         ");
-        $rawInvRows = $stmtInv ? $stmtInv->fetchAll(PDO::FETCH_ASSOC) : [];
-
-        $groupedParts = [];
-        foreach ($rawInvRows as $r) {
-            $pCode = $r['part_code'];
-            if (!isset($groupedParts[$pCode])) {
-                $groupedParts[$pCode] = [
-                    'id' => $r['id'],
-                    'part_code' => $pCode,
-                    'part_name' => $r['part_name'],
-                    'total_ok_qty' => 0,
-                    'uom' => $r['uom'] ?? 'PCS',
-                    'last_mip_no' => $r['last_mip_no'] ?? '',
-                    'production_date' => $r['production_date'] ?? '',
-                    'locations' => []
-                ];
-            }
-            $groupedParts[$pCode]['total_ok_qty'] += floatval($r['total_ok_qty']);
-            $groupedParts[$pCode]['locations'][] = [
-                'rack' => $r['rack'] ?? 'RACK-A1',
-                'bin' => $r['bin'] ?? 'BIN-01',
-                'qty' => floatval($r['total_ok_qty']),
-                'uom' => $r['uom'] ?? 'PCS',
-                'last_mip' => $r['last_mip_no'] ?? '',
-                'date' => $r['production_date'] ?? ''
-            ];
-        }
-        $fgInventoryList = array_values($groupedParts);
+        $fgInventoryList = $stmtInv ? $stmtInv->fetchAll(PDO::FETCH_ASSOC) : [];
     } catch (PDOException $e) {
         // Fallback
     }
@@ -419,7 +549,7 @@ if ($pdo) {
         $stmtLogs = $pdo->query("
             SELECT id, inward_no, mip_no,
                    CONVERT(VARCHAR(10), production_date, 120) as production_date,
-                   part_code, part_name, ok_qty, uom, rack, bin, qc_status,
+                   part_code, part_name, ok_qty, uom, qc_status,
                    work_order, received_by, remarks,
                    CONVERT(VARCHAR(19), created_at, 120) as created_at
             FROM fg_inward_logs
@@ -431,67 +561,23 @@ if ($pdo) {
     } catch (PDOException $e) {
         // Fallback
     }
+    try {
+        $stmtDsp = $pdo->query("
+            SELECT id, dispatch_no,
+                   CONVERT(VARCHAR(10), dispatch_date, 120) as dispatch_date,
+                   invoice_ref, part_code, part_name, batch_no,
+                   dispatch_qty, uom, customer, dispatched_by, remarks,
+                   CONVERT(VARCHAR(19), created_at, 120) as created_at
+            FROM fg_dispatch_logs
+            ORDER BY id DESC
+        ");
+        if ($stmtDsp) {
+            $fgDispatchLogsList = $stmtDsp->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } catch (PDOException $e) {
+        // Fallback
+    }
 }
-
-// Sample Dispatch logs data
-$dispatchSampleList = [
-    [
-        'id' => 101,
-        'dispatch_no' => 'DSP-2026-081',
-        'dispatch_date' => date('Y-m-d', strtotime('-1 days')),
-        'invoice_ref' => 'INV-2026-8801 / DC-102',
-        'part_code' => 'P1001',
-        'part_name' => 'Front Mounting Assembly',
-        'batch_no' => 'LOT-2026-03-A',
-        'dispatch_qty' => 80,
-        'uom' => 'PCS',
-        'dispatched_by' => 'Amit Sharma',
-        'customer' => 'Apex Motors Ltd.',
-        'status' => 'Dispatched'
-    ],
-    [
-        'id' => 102,
-        'dispatch_no' => 'DSP-2026-082',
-        'dispatch_date' => date('Y-m-d', strtotime('-2 days')),
-        'invoice_ref' => 'INV-2026-8795 / DC-099',
-        'part_code' => 'P1002',
-        'part_name' => 'Main Chassis Sub-Assembly',
-        'batch_no' => 'LOT-2026-03-B',
-        'dispatch_qty' => 170,
-        'uom' => 'PCS',
-        'dispatched_by' => 'Rajesh Store',
-        'customer' => 'Bharat Auto Components',
-        'status' => 'Dispatched'
-    ],
-    [
-        'id' => 103,
-        'dispatch_no' => 'DSP-2026-083',
-        'dispatch_date' => date('Y-m-d', strtotime('-3 days')),
-        'invoice_ref' => 'INV-2026-8780 / DC-095',
-        'part_code' => 'P1003',
-        'part_name' => 'Support Bracket Assembly',
-        'batch_no' => 'LOT-2026-03-C',
-        'dispatch_qty' => 50,
-        'uom' => 'PCS',
-        'dispatched_by' => 'Vikas Singh',
-        'customer' => 'Global Engineering Works',
-        'status' => 'Dispatched'
-    ],
-    [
-        'id' => 104,
-        'dispatch_no' => 'DSP-2026-084',
-        'dispatch_date' => date('Y-m-d', strtotime('-6 days')),
-        'invoice_ref' => 'INV-2026-8742 / DC-088',
-        'part_code' => 'P1005',
-        'part_name' => 'Heavy Duty Base Plate',
-        'batch_no' => 'LOT-2026-02-X',
-        'dispatch_qty' => 150,
-        'uom' => 'PCS',
-        'dispatched_by' => 'Vikas Singh',
-        'customer' => 'Dynamic Heavy Equipments',
-        'status' => 'Dispatched'
-    ]
-];
 
 // Calculated stats based on real database records
 $totalStock = 0;
@@ -513,7 +599,7 @@ foreach ($fgInwardLogsList as $item) {
     }
 }
 
-foreach ($dispatchSampleList as $item) {
+foreach ($fgDispatchLogsList as $item) {
     $totalDispatched += floatval($item['dispatch_qty'] ?? 0);
 }
 
@@ -1012,7 +1098,7 @@ $activeMenu = 'fg-store.php';
           <button type="button" class="tab-btn" data-tab="tabDispatchLogs">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
             <span>Dispatch Logs</span>
-            <span class="tab-count" id="countDispatch"><?php echo count($dispatchSampleList); ?></span>
+            <span class="tab-count" id="countDispatch"><?php echo count($fgDispatchLogsList); ?></span>
           </button>
         </div>
 
@@ -1026,6 +1112,7 @@ $activeMenu = 'fg-store.php';
               <h2 class="box-title">Finished Goods (FG) Inventory Stock</h2>
               <div class="table-actions">
                 <input type="text" id="fgSearch" class="simple-input" placeholder="Search Part Code or Name..." style="width: 280px;">
+                <button type="button" class="btn-primary openDispatchModalTrigger" style="background:#4f46e5; border-color:#4338ca;">+ Dispatch FG</button>
               </div>
             </div>
 
@@ -1036,15 +1123,14 @@ $activeMenu = 'fg-store.php';
                   <tr>
                     <th style="width: 60px; text-align: center;">Sr No.</th>
                     <th style="min-width: 280px;">Part Code &amp; Name</th>
-                    <th style="width: 210px; text-align: center; white-space: nowrap;">Location</th>
-                    <th style="width: 160px; text-align: center; white-space: nowrap;">Ok Qty</th>
-                    <th style="width: 100px; text-align: center; white-space: nowrap;">Action</th>
+                    <th style="width: 160px; text-align: center; white-space: nowrap;">Stock Quantity</th>
+                    <th style="width: 150px; text-align: center; white-space: nowrap;">Action</th>
                   </tr>
                 </thead>
                 <tbody id="fgTableBody">
                   <?php if (empty($fgInventoryList)): ?>
                     <tr id="emptyFgRow">
-                      <td colspan="5" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
+                      <td colspan="4" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
                         No finished goods inventory recorded yet. Go to <strong>Inward Logs</strong> tab and click <strong>+ Inward FG</strong> to add stock.
                       </td>
                     </tr>
@@ -1057,7 +1143,6 @@ $activeMenu = 'fg-store.php';
                           data-ok_qty="<?php echo htmlspecialchars($item['total_ok_qty']); ?>"
                           data-available_stock="<?php echo htmlspecialchars($item['total_ok_qty']); ?>"
                           data-uom="<?php echo htmlspecialchars($item['uom'] ?? 'PCS'); ?>"
-                          data-locations="<?php echo htmlspecialchars(json_encode($item['locations'] ?? []), ENT_QUOTES, 'UTF-8'); ?>"
                           data-mip_no="<?php echo htmlspecialchars($item['last_mip_no'] ?? ''); ?>"
                           data-inward_no="<?php echo htmlspecialchars($item['last_mip_no'] ?? ''); ?>"
                           data-batch_no="<?php echo htmlspecialchars($item['last_mip_no'] ?? ''); ?>"
@@ -1072,21 +1157,6 @@ $activeMenu = 'fg-store.php';
                             <?php echo htmlspecialchars($item['part_code']); ?> - <?php echo htmlspecialchars($item['part_name']); ?>
                           </div>
                         </td>
-
-                        <td style="text-align: center; white-space: nowrap;">
-                          <?php $locCount = count($item['locations'] ?? []); ?>
-                          <?php if ($locCount > 1): ?>
-                            <span style="font-weight: 600; color: #4338ca; font-size: 0.88rem;">
-                              <?php echo $locCount; ?> Locations
-                            </span>
-                          <?php elseif ($locCount === 1): ?>
-                            <span style="font-weight: 600; color: #334155; font-size: 0.88rem;">
-                              <?php echo htmlspecialchars($item['locations'][0]['rack'] . ' / ' . $item['locations'][0]['bin']); ?>
-                            </span>
-                          <?php else: ?>
-                            <span style="color: #94a3b8; font-size: 0.88rem;">-</span>
-                          <?php endif; ?>
-                        </td>
                         
                         <td style="text-align: center; white-space: nowrap;">
                           <?php 
@@ -1100,7 +1170,8 @@ $activeMenu = 'fg-store.php';
 
                         <td style="text-align: center; white-space: nowrap;">
                           <div class="action-btns" style="justify-content: center;">
-                            <button type="button" class="btn-view" title="View Storage Breakdown">View</button>
+                            <button type="button" class="btn-view" title="View Stock Details">View</button>
+                            <button type="button" class="btn-dispatch" title="Dispatch Part">Dispatch</button>
                           </div>
                         </td>
                       </tr>
@@ -1122,7 +1193,7 @@ $activeMenu = 'fg-store.php';
             <div class="table-bar">
               <h2 class="box-title">Finished Goods Inward Receipts &amp; Logs</h2>
               <div class="table-actions">
-                <input type="text" id="inwardSearch" class="simple-input" placeholder="Search MIP No, Part, Rack, Bin..." style="width: 280px;">
+                <input type="text" id="inwardSearch" class="simple-input" placeholder="Search MIP No, Part, Inward No..." style="width: 280px;">
                 <button type="button" class="btn-primary" id="openInwardModalBtn">+ Inward FG</button>
               </div>
             </div>
@@ -1136,16 +1207,15 @@ $activeMenu = 'fg-store.php';
                     <th style="min-width: 220px;">Part Code &amp; Name</th>
                     <th style="width: 120px; text-align: center; white-space: nowrap;">Ok Qty</th>
                     <th style="width: 140px; text-align: center; white-space: nowrap;">Production Date</th>
-                    <th style="width: 120px; white-space: nowrap;">Rack</th>
-                    <th style="width: 120px; white-space: nowrap;">Bin</th>
+                    <th style="width: 130px; white-space: nowrap;">Received By</th>
                     <th style="width: 110px; text-align: center; white-space: nowrap;">QC Status</th>
-                    <th style="width: 130px; text-align: center; white-space: nowrap;">Action</th>
+                    <th style="width: 110px; text-align: center; white-space: nowrap;">Action</th>
                   </tr>
                 </thead>
                 <tbody id="inwardTableBody">
                   <?php if (empty($fgInwardLogsList)): ?>
                     <tr id="emptyInwardRow">
-                      <td colspan="9" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
+                      <td colspan="8" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
                         No inward logs recorded yet. Click <strong>+ Inward FG</strong> above to inward finished goods.
                       </td>
                     </tr>
@@ -1160,9 +1230,6 @@ $activeMenu = 'fg-store.php';
                           data-inward_qty="<?php echo htmlspecialchars($item['ok_qty']); ?>"
                           data-ok_qty="<?php echo htmlspecialchars($item['ok_qty']); ?>"
                           data-uom="<?php echo htmlspecialchars($item['uom']); ?>"
-                          data-rack="<?php echo htmlspecialchars($item['rack'] ?? 'RACK-A1'); ?>"
-                          data-bin="<?php echo htmlspecialchars($item['bin'] ?? 'BIN-01'); ?>"
-                          data-location="<?php echo htmlspecialchars(($item['rack'] ?? 'RACK-A1') . ' / ' . ($item['bin'] ?? 'BIN-01')); ?>"
                           data-work_order="<?php echo htmlspecialchars($item['work_order'] ?? ''); ?>"
                           data-received_by="<?php echo htmlspecialchars($item['received_by'] ?? ''); ?>"
                           data-remarks="<?php echo htmlspecialchars($item['remarks'] ?? ''); ?>">
@@ -1182,10 +1249,7 @@ $activeMenu = 'fg-store.php';
                           <?php echo htmlspecialchars(formatDateDMY($item['production_date'])); ?>
                         </td>
                         <td style="white-space: nowrap;">
-                          <span class="batch-lot-code"><?php echo htmlspecialchars($item['rack'] ?? 'RACK-A1'); ?></span>
-                        </td>
-                        <td style="white-space: nowrap;">
-                          <span class="batch-lot-code"><?php echo htmlspecialchars($item['bin'] ?? 'BIN-01'); ?></span>
+                          <strong><?php echo htmlspecialchars($item['received_by'] ?: '-'); ?></strong>
                         </td>
                         <td style="text-align: center; white-space: nowrap;">
                           <span class="tag tag-passed"><?php echo htmlspecialchars($item['qc_status'] ?? 'QC Passed'); ?></span>
@@ -1215,6 +1279,7 @@ $activeMenu = 'fg-store.php';
               <h2 class="box-title">Finished Goods Dispatch &amp; Outward Logs</h2>
               <div class="table-actions">
                 <input type="text" id="dispatchSearch" class="simple-input" placeholder="Search Dispatch No, Customer, Part..." style="width: 280px;">
+                <button type="button" class="btn-primary openDispatchModalTrigger" id="openDispatchModalBtn" style="background:#4f46e5; border-color:#4338ca;">+ Dispatch FG</button>
               </div>
             </div>
 
@@ -1224,59 +1289,82 @@ $activeMenu = 'fg-store.php';
                   <tr>
                     <th style="width: 45px; text-align: center;">Sr No.</th>
                     <th style="width: 140px; white-space: nowrap;">Dispatch No. &amp; Date</th>
-                    <th style="width: 160px; white-space: nowrap;">Invoice / DC Ref.</th>
-                    <th style="min-width: 220px;">Part Description</th>
-                    <th style="width: 130px; white-space: nowrap;">Batch / Lot No.</th>
-                    <th style="width: 110px; text-align: center; white-space: nowrap;">Dispatched Qty</th>
-                    <th style="width: 55px; text-align: center; white-space: nowrap;">UOM</th>
-                    <th style="min-width: 180px; white-space: nowrap;">Customer / Destination</th>
+                    <th style="width: 150px; white-space: nowrap;">Invoice / DC Ref.</th>
+                    <th style="min-width: 200px;">Part Description</th>
+                    <th style="width: 120px; text-align: center; white-space: nowrap;">Dispatched Qty</th>
+                    <th style="min-width: 170px; white-space: nowrap;">Customer / Destination</th>
                     <th style="width: 130px; white-space: nowrap;">Dispatched By</th>
                     <th style="width: 100px; text-align: center; white-space: nowrap;">Status</th>
-                    <th style="width: 120px; text-align: center; white-space: nowrap;">Action</th>
+                    <th style="width: 110px; text-align: center; white-space: nowrap;">Action</th>
                   </tr>
                 </thead>
                 <tbody id="dispatchTableBody">
-                  <?php $srDsp = 1; ?>
-                  <?php foreach ($dispatchSampleList as $dsp): ?>
-                    <tr data-dispatch_no="<?php echo htmlspecialchars($dsp['dispatch_no']); ?>"
-                        data-part_code="<?php echo htmlspecialchars($dsp['part_code']); ?>"
-                        data-customer="<?php echo htmlspecialchars($dsp['customer']); ?>">
-                      <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $srDsp++; ?></td>
-                      <td style="white-space: nowrap;">
-                        <strong style="color: var(--text-main);"><?php echo htmlspecialchars($dsp['dispatch_no']); ?></strong>
-                        <span class="sub-meta"><?php echo htmlspecialchars(formatDateDMY($dsp['dispatch_date'])); ?></span>
-                      </td>
-                      <td style="white-space: nowrap;">
-                        <strong style="color: #4f46e5;"><?php echo htmlspecialchars($dsp['invoice_ref']); ?></strong>
-                      </td>
-                      <td>
-                        <div style="font-weight: 700; color: var(--text-main);">
-                          <?php echo htmlspecialchars($dsp['part_code']); ?> - <?php echo htmlspecialchars($dsp['part_name']); ?>
-                        </div>
-                      </td>
-                      <td style="white-space: nowrap;">
-                        <span class="batch-lot-code"><?php echo htmlspecialchars($dsp['batch_no']); ?></span>
-                      </td>
-                      <td style="text-align: center; white-space: nowrap;">
-                        <span class="qty-badge" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe;"><?php echo formatCleanStock($dsp['dispatch_qty']); ?></span>
-                      </td>
-                      <td style="text-align: center; color: var(--text-sub); font-weight: 600; font-size: 0.8rem; white-space: nowrap;"><?php echo htmlspecialchars($dsp['uom']); ?></td>
-                      <td style="white-space: nowrap;">
-                        <div style="font-weight: 700; color: var(--text-main);"><?php echo htmlspecialchars($dsp['customer']); ?></div>
-                      </td>
-                      <td style="white-space: nowrap;">
-                        <strong><?php echo htmlspecialchars($dsp['dispatched_by']); ?></strong>
-                      </td>
-                      <td style="text-align: center; white-space: nowrap;">
-                        <span class="tag tag-dispatched">Dispatched</span>
-                      </td>
-                      <td style="text-align: center; white-space: nowrap;">
-                        <div class="action-btns">
-                          <button type="button" class="btn-print" onclick="alert('Print Delivery Challan for ' + '<?php echo htmlspecialchars($dsp['dispatch_no']); ?>')">Print DC</button>
-                        </div>
+                  <?php if (empty($fgDispatchLogsList)): ?>
+                    <tr id="emptyDispatchRow">
+                      <td colspan="9" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
+                        No dispatch logs recorded yet. Click <strong>+ Dispatch FG</strong> above to dispatch finished goods.
                       </td>
                     </tr>
-                  <?php endforeach; ?>
+                  <?php else: ?>
+                    <?php $srDsp = 1; ?>
+                    <?php foreach ($fgDispatchLogsList as $dsp): ?>
+                      <tr data-dispatch_no="<?php echo htmlspecialchars($dsp['dispatch_no']); ?>"
+                          data-dispatch_date="<?php echo htmlspecialchars($dsp['dispatch_date']); ?>"
+                          data-part_code="<?php echo htmlspecialchars($dsp['part_code']); ?>"
+                          data-part_name="<?php echo htmlspecialchars($dsp['part_name']); ?>"
+                          data-dispatch_qty="<?php echo htmlspecialchars($dsp['dispatch_qty']); ?>"
+                          data-uom="<?php echo htmlspecialchars($dsp['uom'] ?? 'PCS'); ?>"
+                          data-invoice_ref="<?php echo htmlspecialchars($dsp['invoice_ref']); ?>"
+                          data-customer="<?php echo htmlspecialchars($dsp['customer']); ?>"
+                          data-dispatched_by="<?php echo htmlspecialchars($dsp['dispatched_by']); ?>"
+                          data-remarks="<?php echo htmlspecialchars($dsp['remarks'] ?? ''); ?>">
+                        
+                        <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $srDsp++; ?></td>
+                        
+                        <td style="white-space: nowrap;">
+                          <strong style="color: var(--text-main);"><?php echo htmlspecialchars($dsp['dispatch_no']); ?></strong>
+                          <span class="sub-meta"><?php echo htmlspecialchars(formatDateDMY($dsp['dispatch_date'])); ?></span>
+                        </td>
+                        
+                        <td style="white-space: nowrap;">
+                          <strong style="color: #4f46e5;"><?php echo htmlspecialchars($dsp['invoice_ref']); ?></strong>
+                        </td>
+                        
+                        <td>
+                          <div style="font-weight: 700; color: var(--text-main);">
+                            <?php echo htmlspecialchars($dsp['part_code']); ?> - <?php echo htmlspecialchars($dsp['part_name']); ?>
+                          </div>
+                          <?php if (!empty($dsp['batch_no'])): ?>
+                            <span class="sub-meta">MIP: <?php echo htmlspecialchars($dsp['batch_no']); ?></span>
+                          <?php endif; ?>
+                        </td>
+                        
+                        <td style="text-align: center; white-space: nowrap;">
+                          <span class="qty-badge" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe;">
+                            <?php echo formatCleanStock($dsp['dispatch_qty']); ?> <?php echo htmlspecialchars($dsp['uom'] ?? 'PCS'); ?>
+                          </span>
+                        </td>
+                        
+                        <td style="white-space: nowrap;">
+                          <div style="font-weight: 700; color: var(--text-main);"><?php echo htmlspecialchars($dsp['customer']); ?></div>
+                        </td>
+                        
+                        <td style="white-space: nowrap;">
+                          <strong><?php echo htmlspecialchars($dsp['dispatched_by']); ?></strong>
+                        </td>
+                        
+                        <td style="text-align: center; white-space: nowrap;">
+                          <span class="tag tag-dispatched">Dispatched</span>
+                        </td>
+                        
+                        <td style="text-align: center; white-space: nowrap;">
+                          <div class="action-btns" style="justify-content: center;">
+                            <button type="button" class="btn-print" onclick="printDispatchSlipFromRow(this)">Print DC</button>
+                          </div>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
                 </tbody>
               </table>
             </div>
@@ -1342,18 +1430,6 @@ $activeMenu = 'fg-store.php';
               </div>
             </div>
 
-            <!-- Storage Location: Rack and Bin -->
-            <div id="rackBinWrap" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 6px;">
-              <div class="form-group" style="margin-bottom: 0;">
-                <label for="inputRack">Rack</label>
-                <input type="text" id="inputRack" class="form-control" placeholder="e.g. RACK-A1" value="RACK-A1" autocomplete="off">
-              </div>
-              <div class="form-group" style="margin-bottom: 0;">
-                <label for="inputBin">Bin</label>
-                <input type="text" id="inputBin" class="form-control" placeholder="e.g. BIN-01" value="BIN-01" autocomplete="off">
-              </div>
-            </div>
-
             <!-- Hidden Inputs to hold scanned data for saving into tables -->
             <input type="hidden" id="inward_no" value="">
             <input type="hidden" id="inward_date" value="">
@@ -1363,7 +1439,6 @@ $activeMenu = 'fg-store.php';
             <input type="hidden" id="inward_qty" value="">
             <input type="hidden" id="uom" value="PCS">
             <input type="hidden" id="work_order" value="">
-            <input type="hidden" id="location" value="RACK-A1 / BIN-01">
             <input type="hidden" id="received_by" value="">
             <input type="hidden" id="remarks" value="">
 
@@ -1379,66 +1454,92 @@ $activeMenu = 'fg-store.php';
   </div>
 
   <!-- =========================================================
-       Modal 2: Quick Dispatch FG (Simple Clean Popup)
+       Modal 2: Multi-Item Dispatch FG (Clean Popup with Table)
        ========================================================= -->
   <div class="modal-overlay" id="dispatchModal">
-    <div class="modal-card" style="max-width: 540px;">
+    <div class="modal-card" style="max-width: 820px; width: 95%;">
       <div class="modal-header">
-        <h3 class="modal-title">Dispatch Finished Goods</h3>
+        <h3 class="modal-title">Dispatch Finished Goods (Delivery Challan)</h3>
         <button type="button" class="modal-close-btn" id="closeDispatchModalBtn">&times;</button>
       </div>
 
       <form id="dispatchForm">
-        <input type="hidden" id="disp_row_id">
-        <div class="modal-body">
-          <div class="popup-form-grid">
-            
-            <div class="form-group col-full">
-              <label>Part Description</label>
-              <input type="text" id="disp_part_display" class="form-control" readonly>
+        <div class="modal-body" style="max-height: 78vh; overflow-y: auto;">
+          
+          <!-- Consignment / Delivery Information -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;">
+            <div style="font-weight: 700; color: #1e293b; font-size: 0.88rem; margin-bottom: 10px;">
+              Consignment &amp; Delivery Information
             </div>
-
-            <div class="form-group">
-              <label>Batch / Lot No.</label>
-              <input type="text" id="disp_batch_no" class="form-control" readonly>
+            <div class="popup-form-grid" style="grid-template-columns: repeat(4, 1fr); gap: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="disp_invoice">Invoice / DC Ref. *</label>
+                <input type="text" id="disp_invoice" class="form-control" placeholder="e.g. INV-2026-8802 / DC-104" required>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="disp_date">Dispatch Date *</label>
+                <input type="date" id="disp_date" class="form-control" required value="<?php echo date('Y-m-d'); ?>">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="disp_customer">Customer / Destination *</label>
+                <input type="text" id="disp_customer" class="form-control" placeholder="e.g. Apex Motors Ltd." required>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="disp_by">Dispatched By *</label>
+                <input type="text" id="disp_by" class="form-control" placeholder="Store Executive" value="<?php echo htmlspecialchars($_SESSION['full_name'] ?? 'Store Executive'); ?>" required>
+              </div>
             </div>
-
-            <div class="form-group">
-              <label>Current Available Stock</label>
-              <input type="text" id="disp_available_stock" class="form-control" readonly style="font-weight:700; color:#059669;">
-            </div>
-
-            <div class="form-group">
-              <label for="disp_qty">Dispatch Quantity *</label>
-              <input type="number" id="disp_qty" class="form-control" min="1" step="1" placeholder="Enter qty to dispatch" required>
-            </div>
-
-            <div class="form-group">
-              <label for="disp_date">Dispatch Date *</label>
-              <input type="date" id="disp_date" class="form-control" required value="<?php echo date('Y-m-d'); ?>">
-            </div>
-
-            <div class="form-group col-full">
-              <label for="disp_invoice">Invoice / Delivery Challan Ref. *</label>
-              <input type="text" id="disp_invoice" class="form-control" placeholder="e.g. INV-2026-8802 / DC-104" required>
-            </div>
-
-            <div class="form-group col-full">
-              <label for="disp_customer">Customer / Destination Name *</label>
-              <input type="text" id="disp_customer" class="form-control" placeholder="e.g. Apex Motors Ltd." required>
-            </div>
-
-            <div class="form-group col-full">
-              <label for="disp_by">Dispatched By *</label>
-              <input type="text" id="disp_by" class="form-control" placeholder="Store Executive Name" required>
-            </div>
-
           </div>
+
+          <!-- Multiple Dispatch Items Table -->
+          <div style="margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div>
+                <span style="font-weight: 700; color: #1e293b; font-size: 0.92rem;">Dispatch Parts List</span>
+                <span style="font-size: 0.76rem; color: #64748b; margin-left: 6px;">(You can add multiple parts to dispatch in this single delivery)</span>
+              </div>
+              <button type="button" class="btn-primary" id="addDispItemRowBtn" style="padding: 5px 12px; font-size: 0.82rem; background: #059669; border-color: #047857;">
+                + Add Another Part
+              </button>
+            </div>
+
+            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <table class="simple-table" id="dispItemsTable" style="margin: 0; width: 100%; font-size: 0.86rem;">
+                <thead style="background: #f1f5f9;">
+                  <tr>
+                    <th style="width: 36px; text-align: center;">#</th>
+                    <th style="min-width: 280px;">Select Finished Part *</th>
+                    <th style="width: 140px; text-align: center; white-space: nowrap;">Available Stock</th>
+                    <th style="width: 150px; text-align: center; white-space: nowrap;">Dispatch Qty *</th>
+                    <th style="width: 50px; text-align: center;"></th>
+                  </tr>
+                </thead>
+                <tbody id="dispItemsTableBody">
+                  <!-- Dynamic rows will be inserted here -->
+                </tbody>
+              </table>
+            </div>
+            <small style="color: #64748b; font-size: 0.74rem; margin-top: 5px; display: block;">
+              💡 Dispatch quantity will be deducted directly from the available finished goods inventory.
+            </small>
+          </div>
+
+          <!-- General Remarks -->
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="disp_remarks">Consignment Remarks</label>
+            <input type="text" id="disp_remarks" class="form-control" placeholder="Optional notes for this delivery challan">
+          </div>
+
         </div>
 
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary" id="cancelDispatchBtn">Cancel</button>
-          <button type="submit" class="btn-primary" style="background:#4f46e5; border-color:#4338ca;">Confirm Dispatch</button>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <span id="dispTotalSummary" style="font-weight: 700; color: #1e293b; font-size: 0.9rem;">
+            Total Parts to Dispatch: <span id="dispItemsCount">0</span>
+          </span>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-secondary" id="cancelDispatchBtn">Cancel</button>
+            <button type="submit" class="btn-primary" id="confirmDispatchBtn" style="background:#4f46e5; border-color:#4338ca;">Confirm Dispatch</button>
+          </div>
         </div>
       </form>
     </div>
@@ -1461,6 +1562,7 @@ $activeMenu = 'fg-store.php';
       <div class="modal-footer">
         <button type="button" class="btn-secondary" id="closeViewBtn">Close</button>
         <button type="button" class="btn-print" id="printFromViewBtn">Print Slip</button>
+        <button type="button" class="btn-primary" id="dispatchFromViewBtn" style="background:#4f46e5; border-color:#4338ca;">Dispatch Part</button>
       </div>
     </div>
   </div>
@@ -1491,8 +1593,8 @@ $activeMenu = 'fg-store.php';
         <tr>
           <td style="font-weight: bold; background: #f2f2f2;">Batch / Lot No:</td>
           <td id="prn_batch_no">-</td>
-          <td style="font-weight: bold; background: #f2f2f2;">Rack / Location:</td>
-          <td id="prn_location">-</td>
+          <td style="font-weight: bold; background: #f2f2f2;">Store:</td>
+          <td id="prn_location">FG Warehouse</td>
         </tr>
         <tr>
           <td style="font-weight: bold; background: #f2f2f2;">Inward Quantity:</td>
@@ -1631,15 +1733,10 @@ $activeMenu = 'fg-store.php';
         const tblWrap = document.getElementById('fetchedMipTableWrap');
         if (tblWrap) tblWrap.style.display = 'none';
 
-        ['inward_no', 'inward_date', 'part_code', 'part_name', 'batch_no', 'inward_qty', 'uom', 'work_order', 'location', 'received_by', 'remarks'].forEach(id => {
+        ['inward_no', 'inward_date', 'part_code', 'part_name', 'batch_no', 'inward_qty', 'uom', 'work_order', 'received_by', 'remarks'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = '';
         });
-
-        const rackEl = document.getElementById('inputRack');
-        if (rackEl) rackEl.value = 'RACK-A1';
-        const binEl = document.getElementById('inputBin');
-        if (binEl) binEl.value = 'BIN-01';
 
         if (saveInwardBtn) {
           saveInwardBtn.disabled = true;
@@ -1699,7 +1796,6 @@ $activeMenu = 'fg-store.php';
           const pName = match.part_name || pCode;
           const uom = match.uom || 'PCS';
           const prodDate = match.production_date || (match.created_at ? match.created_at.substring(0, 10) : new Date().toISOString().split('T')[0]);
-          const defaultLoc = match.department ? `${match.department} / BAY-1` : 'RACK-A1 / BIN-01';
           const newInNo = 'FGI-' + new Date().getFullYear() + '-' + String(Math.floor(100 + Math.random() * 900));
 
           // Set hidden inputs for saving
@@ -1711,7 +1807,6 @@ $activeMenu = 'fg-store.php';
           document.getElementById('inward_qty').value = okQty;
           document.getElementById('uom').value = uom;
           document.getElementById('work_order').value = match.work_order || '';
-          document.getElementById('location').value = defaultLoc;
           document.getElementById('received_by').value = match.operator_name || match.received_by || '';
           document.getElementById('remarks').value = `Inwarded from Production Entry (MIP: ${match.mip_no || '-'}, OK Qty: ${formatCleanStockJs(okQty)} ${uom})`;
 
@@ -1855,8 +1950,6 @@ $activeMenu = 'fg-store.php';
         const batchNo = document.getElementById('batch_no').value || (scanMipInput ? scanMipInput.value.trim() : '');
         const inQty = parseFloat(document.getElementById('inward_qty').value) || 0;
         const uom = document.getElementById('uom').value || 'PCS';
-        const rackVal = (document.getElementById('inputRack')?.value || 'RACK-A1').trim();
-        const binVal = (document.getElementById('inputBin')?.value || 'BIN-01').trim();
         const wo = document.getElementById('work_order').value;
         const recBy = document.getElementById('received_by').value;
         const remarks = document.getElementById('remarks').value;
@@ -1879,8 +1972,6 @@ $activeMenu = 'fg-store.php';
           part_name: partName,
           inward_qty: inQty,
           uom: uom,
-          rack: rackVal || 'RACK-A1',
-          bin: binVal || 'BIN-01',
           work_order: wo,
           received_by: recBy,
           remarks: remarks
@@ -1918,111 +2009,272 @@ $activeMenu = 'fg-store.php';
         }
       });
 
-      // Quick Dispatch Form Submission (Updates Tab 1, Adds to Tab 3)
-      dispatchForm.addEventListener('submit', function(e) {
+      // Multi-Item Dispatch Elements & Data
+      const fgInventoryData = <?php echo json_encode($fgInventoryList); ?>;
+      const openDispatchModalBtn = document.getElementById('openDispatchModalBtn');
+      const dispItemsTableBody = document.getElementById('dispItemsTableBody');
+      const addDispItemRowBtn = document.getElementById('addDispItemRowBtn');
+      const dispItemsCount = document.getElementById('dispItemsCount');
+      const confirmDispatchBtn = document.getElementById('confirmDispatchBtn');
+
+      function updateDispatchItemCount() {
+        if (!dispItemsTableBody) return;
+        const rows = dispItemsTableBody.querySelectorAll('tr');
+        if (dispItemsCount) dispItemsCount.textContent = rows.length;
+        rows.forEach((tr, idx) => {
+          const numCell = tr.querySelector('.disp-row-num');
+          if (numCell) numCell.textContent = idx + 1;
+        });
+      }
+
+      function addDispatchItemRow(preselectedPartCode = null) {
+        if (!dispItemsTableBody) return;
+
+        const row = document.createElement('tr');
+        const rowIndex = dispItemsTableBody.querySelectorAll('tr').length + 1;
+
+        // Build Part Options from fgInventoryData (only parts with stock > 0)
+        let partOptionsHtml = '<option value="">-- Select In-Stock Part --</option>';
+        fgInventoryData.forEach(p => {
+          const stock = parseFloat(p.total_ok_qty || 0);
+          if (stock > 0) {
+            const isSel = (preselectedPartCode && p.part_code === preselectedPartCode) ? 'selected' : '';
+            partOptionsHtml += `<option value="${escapeHtml(p.part_code)}" ${isSel} data-name="${escapeHtml(p.part_name)}" data-uom="${escapeHtml(p.uom || 'PCS')}" data-stock="${stock}" data-batch="${escapeHtml(p.last_mip_no || '')}">
+              ${escapeHtml(p.part_code)} - ${escapeHtml(p.part_name)} (${formatCleanStockJs(stock)} ${escapeHtml(p.uom || 'PCS')})
+            </option>`;
+          }
+        });
+
+        row.innerHTML = `
+          <td class="disp-row-num" style="text-align: center; color: var(--text-sub); font-weight: 600;">${rowIndex}</td>
+          <td>
+            <select class="form-control disp-row-part" style="width: 100%; font-size: 0.84rem;" required>
+              ${partOptionsHtml}
+            </select>
+            <input type="hidden" class="disp-row-part-name">
+            <input type="hidden" class="disp-row-uom" value="PCS">
+            <input type="hidden" class="disp-row-batch" value="">
+          </td>
+          <td style="text-align: center; white-space: nowrap;">
+            <span class="disp-row-avail" style="font-weight: 700; color: #059669; font-size: 0.86rem;">-</span>
+          </td>
+          <td style="text-align: center;">
+            <input type="number" class="form-control disp-row-qty" min="0.001" step="any" placeholder="Qty" style="text-align: right; font-weight: 600;" required disabled>
+          </td>
+          <td style="text-align: center;">
+            <button type="button" class="btn-delete-row" title="Remove Item" style="background: transparent; border: none; color: #ef4444; cursor: pointer; font-size: 1.15rem; line-height: 1; padding: 4px 6px;">
+              &times;
+            </button>
+          </td>
+        `;
+
+        const partSelect = row.querySelector('.disp-row-part');
+        const availSpan = row.querySelector('.disp-row-avail');
+        const qtyInput = row.querySelector('.disp-row-qty');
+        const partNameInput = row.querySelector('.disp-row-part-name');
+        const uomInput = row.querySelector('.disp-row-uom');
+        const batchInput = row.querySelector('.disp-row-batch');
+        const delBtn = row.querySelector('.btn-delete-row');
+
+        function onPartChanged() {
+          const opt = partSelect.options[partSelect.selectedIndex];
+          if (!opt || !partSelect.value) {
+            availSpan.textContent = '-';
+            qtyInput.value = '';
+            qtyInput.disabled = true;
+            partNameInput.value = '';
+            batchInput.value = '';
+            return;
+          }
+          const stock = parseFloat(opt.dataset.stock || 0);
+          const uom = opt.dataset.uom || 'PCS';
+          partNameInput.value = opt.dataset.name || '';
+          uomInput.value = uom;
+          batchInput.value = opt.dataset.batch || '';
+          availSpan.textContent = `${formatCleanStockJs(stock)} ${uom}`;
+          qtyInput.disabled = false;
+          qtyInput.max = stock;
+          qtyInput.focus();
+        }
+
+        partSelect.addEventListener('change', onPartChanged);
+
+        delBtn.addEventListener('click', function() {
+          const allRows = dispItemsTableBody.querySelectorAll('tr');
+          if (allRows.length > 1) {
+            row.remove();
+            updateDispatchItemCount();
+          } else {
+            partSelect.value = '';
+            onPartChanged();
+          }
+        });
+
+        dispItemsTableBody.appendChild(row);
+        updateDispatchItemCount();
+
+        if (preselectedPartCode) {
+          onPartChanged();
+        }
+      }
+
+      function openDispatchModal(preselectedPartCode = null) {
+        if (!dispatchModal) return;
+        dispatchForm.reset();
+        dispItemsTableBody.innerHTML = '';
+
+        const dDateInput = document.getElementById('disp_date');
+        if (dDateInput) dDateInput.value = new Date().toISOString().split('T')[0];
+
+        addDispatchItemRow(preselectedPartCode);
+        dispatchModal.classList.add('active');
+      }
+
+      document.querySelectorAll('.openDispatchModalTrigger').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          openDispatchModal();
+        });
+      });
+
+      if (addDispItemRowBtn) {
+        addDispItemRowBtn.addEventListener('click', function() {
+          addDispatchItemRow();
+        });
+      }
+
+      // Handle Multi-Item Dispatch Form Submission
+      dispatchForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        if (!currentActiveRow) return;
 
-        const dispQty = parseFloat(document.getElementById('disp_qty').value) || 0;
-        const currentStock = parseFloat(currentActiveRow.dataset.available_stock || 0);
+        const invRef = document.getElementById('disp_invoice').value.trim();
+        const dDate = document.getElementById('disp_date').value;
+        const cust = document.getElementById('disp_customer').value.trim();
+        const dBy = document.getElementById('disp_by').value.trim();
+        const dRemarks = document.getElementById('disp_remarks').value.trim();
 
-        if (dispQty > currentStock) {
-          alert('Error: Dispatch quantity cannot be greater than available stock (' + currentStock + ')');
+        if (!invRef) {
+          showToast('Please enter Invoice / Delivery Challan Ref.', 'error');
+          return;
+        }
+        if (!cust) {
+          showToast('Please enter Customer / Destination Name.', 'error');
           return;
         }
 
-        const prevDisp = parseFloat(currentActiveRow.dataset.dispatched_qty || 0);
-        const newDisp = prevDisp + dispQty;
-        const newStock = currentStock - dispQty;
-
-        currentActiveRow.dataset.dispatched_qty = newDisp;
-        currentActiveRow.dataset.available_stock = newStock;
-
-        // Update badge and status
-        let status = 'Available';
-        let badgeCls = 'in-stock';
-        let tagCls = 'tag-available';
-
-        if (newStock <= 0) {
-          status = 'Dispatched';
-          badgeCls = 'zero-stock';
-          tagCls = 'tag-dispatched';
-        } else if (newStock <= 35) {
-          status = 'Low Stock';
-          badgeCls = 'low-stock';
-          tagCls = 'tag-low';
+        const rows = dispItemsTableBody.querySelectorAll('tr');
+        if (rows.length === 0) {
+          showToast('Please add at least one part to dispatch.', 'error');
+          return;
         }
 
-        currentActiveRow.dataset.status = status;
+        const items = [];
+        let validationError = null;
 
-        // Update cell in Tab 1
-        const qtyBadge = currentActiveRow.querySelector('.qty-badge');
-        if (qtyBadge) {
-          qtyBadge.className = `qty-badge ${badgeCls}`;
-          qtyBadge.textContent = `${formatCleanStockJs(newStock)} ${currentActiveRow.dataset.uom || 'PCS'}`;
+        rows.forEach((tr, i) => {
+          if (validationError) return;
+          const pCode = tr.querySelector('.disp-row-part').value.trim();
+          const pName = tr.querySelector('.disp-row-part-name').value.trim();
+          const uVal = tr.querySelector('.disp-row-uom').value.trim();
+          const bNo = tr.querySelector('.disp-row-batch').value.trim();
+          const qtyInput = tr.querySelector('.disp-row-qty');
+          const dQty = parseFloat(qtyInput.value) || 0;
+          const maxStock = parseFloat(qtyInput.max) || 0;
+
+          if (!pCode) {
+            validationError = `Row #${i + 1}: Please select a finished part.`;
+            return;
+          }
+          if (dQty <= 0) {
+            validationError = `Row #${i + 1} (${pCode}): Dispatch quantity must be greater than zero.`;
+            return;
+          }
+          if (maxStock > 0 && dQty > maxStock) {
+            validationError = `Row #${i + 1} (${pCode}): Dispatch quantity (${dQty}) exceeds available stock (${maxStock}).`;
+            return;
+          }
+
+          items.push({
+            part_code: pCode,
+            part_name: pName,
+            dispatch_qty: dQty,
+            uom: uVal || 'PCS',
+            batch_no: bNo
+          });
+        });
+
+        if (validationError) {
+          showToast(validationError, 'error');
+          return;
         }
 
-        // Disable dispatch button if zero stock
-        const dispBtn = currentActiveRow.querySelector('.btn-dispatch');
-        if (dispBtn && newStock <= 0) {
-          dispBtn.disabled = true;
-          dispBtn.style.opacity = '0.4';
-          dispBtn.style.cursor = 'not-allowed';
+        if (confirmDispatchBtn) {
+          confirmDispatchBtn.disabled = true;
+          confirmDispatchBtn.textContent = 'Processing Dispatch...';
         }
 
-        // Add to Tab 3 (Dispatch Logs)
-        if (dispatchTableBody) {
-          const dspDate = document.getElementById('disp_date').value;
-          const dParts = dspDate.split('-');
-          const dspDateDMY = dParts.length === 3 ? (dParts[2] + '-' + dParts[1] + '-' + dParts[0]) : dspDate;
-          const invoiceRef = document.getElementById('disp_invoice').value;
-          const customer = document.getElementById('disp_customer').value;
-          const dispBy = document.getElementById('disp_by').value;
-          const dspNo = 'DSP-' + new Date().getFullYear() + '-' + String(Math.floor(100 + Math.random() * 900));
+        const payload = {
+          action: 'save_dispatch',
+          invoice_ref: invRef,
+          dispatch_date: dDate,
+          customer: cust,
+          dispatched_by: dBy,
+          remarks: dRemarks,
+          items: items
+        };
 
-          const dspTr = document.createElement('tr');
-          const dspSr = dispatchTableBody.querySelectorAll('tr').length + 1;
-          dspTr.innerHTML = `
-            <td style="color: var(--text-sub); font-weight: 600; text-align: center;">${dspSr}</td>
-            <td style="white-space: nowrap;">
-              <strong style="color: var(--text-main);">${dspNo}</strong>
-              <span class="sub-meta">${dspDateDMY}</span>
-            </td>
-            <td style="white-space: nowrap;">
-              <strong style="color: #4f46e5;">${invoiceRef}</strong>
-            </td>
-            <td>
-              <div style="font-weight: 700; color: var(--text-main);">${currentActiveRow.dataset.part_code} - ${currentActiveRow.dataset.part_name}</div>
-            </td>
-            <td style="white-space: nowrap;">
-              <span class="batch-lot-code">${currentActiveRow.dataset.batch_no}</span>
-            </td>
-            <td style="text-align: center; white-space: nowrap;">
-              <span class="qty-badge" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe;">${dispQty.toLocaleString()}</span>
-            </td>
-            <td style="text-align: center; color: var(--text-sub); font-weight: 600; font-size: 0.8rem; white-space: nowrap;">${currentActiveRow.dataset.uom}</td>
-            <td style="white-space: nowrap;">
-              <div style="font-weight: 700; color: var(--text-main);">${customer}</div>
-            </td>
-            <td style="white-space: nowrap;">
-              <strong>${dispBy}</strong>
-            </td>
-            <td style="text-align: center; white-space: nowrap;">
-              <span class="tag tag-dispatched">Dispatched</span>
-            </td>
-            <td style="text-align: center; white-space: nowrap;">
-              <div class="action-btns">
-                <button type="button" class="btn-print" onclick="alert('Print Delivery Challan for ' + '${dspNo}')">Print DC</button>
-              </div>
-            </td>
-          `;
-          dispatchTableBody.prepend(dspTr);
+        try {
+          const resp = await fetch('api/fg_store.php?action=save_dispatch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const res = await resp.json();
+
+          if (res.success) {
+            showToast(res.message || 'Dispatch completed successfully!', 'success');
+            closeDispatchModal();
+            setTimeout(() => {
+              window.location.reload();
+            }, 650);
+          } else {
+            showToast(res.message || 'Error processing dispatch.', 'error');
+            if (confirmDispatchBtn) {
+              confirmDispatchBtn.disabled = false;
+              confirmDispatchBtn.textContent = 'Confirm Dispatch';
+            }
+          }
+        } catch (err) {
+          showToast('Network error while dispatching: ' + err.message, 'error');
+          if (confirmDispatchBtn) {
+            confirmDispatchBtn.disabled = false;
+            confirmDispatchBtn.textContent = 'Confirm Dispatch';
+          }
         }
-
-        closeDispatchModal();
-        recalculateStats();
-        alert('Success: ' + dispQty + ' units dispatched successfully!');
       });
+
+      // Print Delivery Challan (DC) Slip from Dispatch Logs Row
+      window.printDispatchSlipFromRow = function(btn) {
+        const tr = btn.closest('tr');
+        if (!tr) return;
+        const d = tr.dataset;
+
+        document.getElementById('prn_inward_no').textContent = d.dispatch_no || '-';
+        document.getElementById('prn_inward_date').textContent = formatDateDMY(d.dispatch_date);
+        document.getElementById('prn_part_code').textContent = d.part_code || '-';
+        document.getElementById('prn_part_name').textContent = d.part_name || '-';
+        document.getElementById('prn_batch_no').textContent = d.invoice_ref || '-';
+        document.getElementById('prn_location').textContent = 'FG Store';
+        document.getElementById('prn_inward_qty').textContent = `${formatCleanStockJs(d.dispatch_qty)} ${d.uom || 'PCS'}`;
+        document.getElementById('prn_available_stock').textContent = 'DISPATCHED';
+        document.getElementById('prn_work_order').textContent = d.customer || '-';
+        document.getElementById('prn_received_by').textContent = d.dispatched_by || '-';
+        document.getElementById('prn_remarks').textContent = d.remarks || '-';
+
+        const titleEl = document.querySelector('#printArea h2');
+        if (titleEl) titleEl.textContent = 'FINISHED GOODS DISPATCH & DELIVERY CHALLAN';
+
+        window.print();
+      };
 
       // Row Actions handler
       function attachRowEvents(tr) {
@@ -2042,19 +2294,10 @@ $activeMenu = 'fg-store.php';
             currentActiveRow = tr;
             const stock = parseFloat(tr.dataset.available_stock || 0);
             if (stock <= 0) {
-              alert('This batch has zero stock available for dispatch.');
+              showToast('This part has zero stock available for dispatch.', 'warning');
               return;
             }
-            document.getElementById('disp_row_id').value = tr.dataset.id;
-            document.getElementById('disp_part_display').value = tr.dataset.part_code + ' - ' + tr.dataset.part_name;
-            document.getElementById('disp_batch_no').value = tr.dataset.batch_no;
-            document.getElementById('disp_available_stock').value = stock + ' ' + tr.dataset.uom;
-            document.getElementById('disp_qty').value = '';
-            document.getElementById('disp_qty').max = stock;
-            document.getElementById('disp_invoice').value = '';
-            document.getElementById('disp_customer').value = '';
-            document.getElementById('disp_by').value = '';
-            dispatchModal.classList.add('active');
+            openDispatchModal(tr.dataset.part_code);
           });
         }
 
@@ -2084,54 +2327,7 @@ $activeMenu = 'fg-store.php';
         const d = tr.dataset;
         const dParts = (d.inward_date || '').split('-');
         const dateDMY = dParts.length === 3 ? (dParts[2] + '-' + dParts[1] + '-' + dParts[0]) : d.inward_date;
-
-        let locations = [];
-        try {
-          locations = JSON.parse(d.locations || '[]');
-        } catch (e) {
-          locations = [];
-        }
-
         const totalQty = parseFloat(d.ok_qty || d.available_stock || 0);
-
-        let locationRowsHtml = '';
-        if (locations && locations.length > 0) {
-          locationRowsHtml = `
-            <div style="grid-column: 1 / -1; margin-top: 6px;">
-              <span style="font-size: 0.8rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 8px;">
-                Warehouse Storage Breakdown (${locations.length} Location${locations.length > 1 ? 's' : ''}):
-              </span>
-              <table style="width: 100%; border-collapse: collapse; font-size: 0.83rem; background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
-                <thead>
-                  <tr style="background: #f1f5f9; text-align: left; color: #475569; font-size: 0.78rem;">
-                    <th style="padding: 8px 12px; font-weight: 600;">Rack / Bin</th>
-                    <th style="padding: 8px 12px; font-weight: 600; text-align: right;">Quantity</th>
-                    <th style="padding: 8px 12px; font-weight: 600; text-align: center;">Last MIP</th>
-                    <th style="padding: 8px 12px; font-weight: 600; text-align: right;">Last Inward</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${locations.map(loc => `
-                    <tr style="border-top: 1px solid #e2e8f0;">
-                      <td style="padding: 8px 12px; font-weight: 600; color: #1e293b;">
-                        ${loc.rack} / ${loc.bin}
-                      </td>
-                      <td style="padding: 8px 12px; font-weight: 700; color: #059669; text-align: right;">
-                        ${formatCleanStockJs(loc.qty)} ${loc.uom || d.uom || 'PCS'}
-                      </td>
-                      <td style="padding: 8px 12px; text-align: center; color: #334155; font-weight: 600;">
-                        ${loc.last_mip || '-'}
-                      </td>
-                      <td style="padding: 8px 12px; text-align: right; color: #64748b;">
-                        ${loc.date ? (loc.date.split('-').length === 3 ? (loc.date.split('-')[2] + '-' + loc.date.split('-')[1] + '-' + loc.date.split('-')[0]) : loc.date) : '-'}
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          `;
-        }
 
         viewModalContent.innerHTML = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 0.9rem;">
@@ -2156,8 +2352,6 @@ $activeMenu = 'fg-store.php';
               <strong>${dateDMY || '-'}</strong>
             </div>
 
-            ${locationRowsHtml}
-
             ${d.remarks ? `
             <div style="grid-column: 1 / -1;">
               <span style="font-size: 0.78rem; color: var(--text-sub); display: block;">Remarks</span>
@@ -2179,7 +2373,7 @@ $activeMenu = 'fg-store.php';
         document.getElementById('prn_part_code').textContent = d.part_code;
         document.getElementById('prn_part_name').textContent = d.part_name;
         document.getElementById('prn_batch_no').textContent = d.batch_no;
-        document.getElementById('prn_location').textContent = d.location;
+        document.getElementById('prn_location').textContent = d.location || 'FG Store';
         document.getElementById('prn_inward_qty').textContent = parseFloat(d.inward_qty).toLocaleString() + ' ' + d.uom;
         document.getElementById('prn_available_stock').textContent = parseFloat(d.available_stock).toLocaleString() + ' ' + d.uom;
         document.getElementById('prn_work_order').textContent = d.work_order || '-';
@@ -2200,6 +2394,17 @@ $activeMenu = 'fg-store.php';
           if (currentActiveRow) {
             populatePrintArea(currentActiveRow);
             window.print();
+          }
+        });
+      }
+
+      const dispatchFromViewBtn = document.getElementById('dispatchFromViewBtn');
+      if (dispatchFromViewBtn) {
+        dispatchFromViewBtn.addEventListener('click', function() {
+          if (currentActiveRow) {
+            const pCode = currentActiveRow.dataset.part_code;
+            closeViewModal();
+            openDispatchModal(pCode);
           }
         });
       }
