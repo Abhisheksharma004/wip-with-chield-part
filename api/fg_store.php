@@ -169,11 +169,6 @@ if ($method === 'POST') {
             exit;
         }
 
-        if (empty($customer)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Customer name is required.']);
-            exit;
-        }
 
         // Support both multi-item array ($data['items']) and single-item format
         $rawItems = $data['items'] ?? [];

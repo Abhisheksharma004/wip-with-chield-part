@@ -295,10 +295,6 @@ if (((($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') && isset($_GET['action']) &
         exit;
     }
 
-    if (empty($customer)) {
-        echo json_encode(['success' => false, 'message' => 'Customer name is required.']);
-        exit;
-    }
 
     $rawItems = $postData['items'] ?? [];
     if (!is_array($rawItems) || empty($rawItems)) {
@@ -1218,14 +1214,13 @@ $activeMenu = 'fg-store.php';
                     <th style="width: 120px; text-align: center; white-space: nowrap;">Ok Qty</th>
                     <th style="width: 140px; text-align: center; white-space: nowrap;">Production Date</th>
                     <th style="width: 130px; white-space: nowrap;">Received By</th>
-                    <th style="width: 110px; text-align: center; white-space: nowrap;">QC Status</th>
                     <th style="width: 110px; text-align: center; white-space: nowrap;">Action</th>
                   </tr>
                 </thead>
                 <tbody id="inwardTableBody">
                   <?php if (empty($fgInwardLogsList)): ?>
                     <tr id="emptyInwardRow">
-                      <td colspan="8" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
+                      <td colspan="7" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
                         No inward logs recorded yet. Click <strong>+ Inward FG</strong> above to inward finished goods.
                       </td>
                     </tr>
@@ -1242,6 +1237,8 @@ $activeMenu = 'fg-store.php';
                           data-uom="<?php echo htmlspecialchars($item['uom']); ?>"
                           data-work_order="<?php echo htmlspecialchars($item['work_order'] ?? ''); ?>"
                           data-received_by="<?php echo htmlspecialchars($item['received_by'] ?? ''); ?>"
+                          data-production_date="<?php echo htmlspecialchars($item['production_date'] ?? ''); ?>"
+                          data-created_at="<?php echo htmlspecialchars($item['created_at'] ?? ''); ?>"
                           data-remarks="<?php echo htmlspecialchars($item['remarks'] ?? ''); ?>">
                         <td style="color: var(--text-sub); font-weight: 600; text-align: center;"><?php echo $srIn++; ?></td>
                         <td style="white-space: nowrap;">
@@ -1262,11 +1259,8 @@ $activeMenu = 'fg-store.php';
                           <strong><?php echo htmlspecialchars($item['received_by'] ?: '-'); ?></strong>
                         </td>
                         <td style="text-align: center; white-space: nowrap;">
-                          <span class="tag tag-passed"><?php echo htmlspecialchars($item['qc_status'] ?? 'QC Passed'); ?></span>
-                        </td>
-                        <td style="text-align: center; white-space: nowrap;">
                           <div class="action-btns" style="justify-content: center;">
-                            <button type="button" class="btn-print" onclick="printRowTag('<?php echo htmlspecialchars($item['inward_no']); ?>')">Print Tag</button>
+                            <button type="button" class="btn-print" onclick="printRowTag(this)">Print Tag</button>
                           </div>
                         </td>
                       </tr>
@@ -1288,7 +1282,7 @@ $activeMenu = 'fg-store.php';
             <div class="table-bar">
               <h2 class="box-title">Finished Goods Dispatch &amp; Outward Logs</h2>
               <div class="table-actions">
-                <input type="text" id="dispatchSearch" class="simple-input" placeholder="Search Dispatch No, Customer, Part..." style="width: 280px;">
+                <input type="text" id="dispatchSearch" class="simple-input" placeholder="Search Dispatch No, Invoice, Part..." style="width: 280px;">
                 <button type="button" class="btn-primary openDispatchModalTrigger" id="openDispatchModalBtn" style="background:#4f46e5; border-color:#4338ca;">+ Dispatch FG</button>
               </div>
             </div>
@@ -1302,8 +1296,7 @@ $activeMenu = 'fg-store.php';
                     <th style="width: 150px; white-space: nowrap;">Invoice / DC Ref.</th>
                     <th style="min-width: 200px;">Part Description</th>
                     <th style="width: 120px; text-align: center; white-space: nowrap;">Dispatched Qty</th>
-                    <th style="min-width: 170px; white-space: nowrap;">Customer / Destination</th>
-                    <th style="width: 130px; white-space: nowrap;">Dispatched By</th>
+                    <th style="width: 140px; white-space: nowrap;">Dispatched By</th>
                     <th style="width: 100px; text-align: center; white-space: nowrap;">Status</th>
                     <th style="width: 110px; text-align: center; white-space: nowrap;">Action</th>
                   </tr>
@@ -1311,7 +1304,7 @@ $activeMenu = 'fg-store.php';
                 <tbody id="dispatchTableBody">
                   <?php if (empty($fgDispatchLogsList)): ?>
                     <tr id="emptyDispatchRow">
-                      <td colspan="9" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
+                      <td colspan="8" style="text-align: center; padding: 36px 20px; color: var(--text-sub);">
                         No dispatch logs recorded yet. Click <strong>+ Dispatch FG</strong> above to dispatch finished goods.
                       </td>
                     </tr>
@@ -1325,7 +1318,6 @@ $activeMenu = 'fg-store.php';
                           data-dispatch_qty="<?php echo htmlspecialchars($dsp['dispatch_qty']); ?>"
                           data-uom="<?php echo htmlspecialchars($dsp['uom'] ?? 'PCS'); ?>"
                           data-invoice_ref="<?php echo htmlspecialchars($dsp['invoice_ref']); ?>"
-                          data-customer="<?php echo htmlspecialchars($dsp['customer']); ?>"
                           data-dispatched_by="<?php echo htmlspecialchars($dsp['dispatched_by']); ?>"
                           data-remarks="<?php echo htmlspecialchars($dsp['remarks'] ?? ''); ?>">
                         
@@ -1353,10 +1345,6 @@ $activeMenu = 'fg-store.php';
                           <span class="qty-badge" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe;">
                             <?php echo formatCleanStock($dsp['dispatch_qty']); ?> <?php echo htmlspecialchars($dsp['uom'] ?? 'PCS'); ?>
                           </span>
-                        </td>
-                        
-                        <td style="white-space: nowrap;">
-                          <div style="font-weight: 700; color: var(--text-main);"><?php echo htmlspecialchars($dsp['customer']); ?></div>
                         </td>
                         
                         <td style="white-space: nowrap;">
@@ -1467,84 +1455,70 @@ $activeMenu = 'fg-store.php';
        Modal 2: Multi-Item Dispatch FG (Clean Popup with Table)
        ========================================================= -->
   <div class="modal-overlay" id="dispatchModal">
-    <div class="modal-card" style="max-width: 820px; width: 95%;">
+    <div class="modal-card" style="max-width: 760px; width: 95%;">
       <div class="modal-header">
-        <h3 class="modal-title">Dispatch Finished Goods (Delivery Challan)</h3>
+        <h3 class="modal-title">Dispatch Finished Goods</h3>
         <button type="button" class="modal-close-btn" id="closeDispatchModalBtn">&times;</button>
       </div>
 
       <form id="dispatchForm">
-        <div class="modal-body" style="max-height: 78vh; overflow-y: auto;">
-          
-          <!-- Consignment / Delivery Information -->
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;">
-            <div style="font-weight: 700; color: #1e293b; font-size: 0.88rem; margin-bottom: 10px;">
-              Consignment &amp; Delivery Information
+        <div class="modal-body">
+          <div class="popup-form-grid">
+            
+            <div class="form-group">
+              <label for="disp_invoice">Invoice / DC Ref. *</label>
+              <input type="text" id="disp_invoice" class="form-control" placeholder="e.g. INV-2026-101 / DC-104" required>
             </div>
-            <div class="popup-form-grid" style="grid-template-columns: repeat(4, 1fr); gap: 12px;">
-              <div class="form-group" style="margin-bottom: 0;">
-                <label for="disp_invoice">Invoice / DC Ref. *</label>
-                <input type="text" id="disp_invoice" class="form-control" placeholder="e.g. INV-2026-8802 / DC-104" required>
+            
+            <div class="form-group">
+              <label for="disp_date">Dispatch Date *</label>
+              <input type="date" id="disp_date" class="form-control" required value="<?php echo date('Y-m-d'); ?>">
+            </div>
+
+            <div class="form-group col-full">
+              <label for="disp_by">Dispatched By *</label>
+              <input type="text" id="disp_by" class="form-control" placeholder="Store Executive" value="<?php echo htmlspecialchars($_SESSION['full_name'] ?? 'Store Executive'); ?>" required>
+            </div>
+
+            <!-- Multiple Dispatch Items Table -->
+            <div class="form-group col-full" style="margin-top: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label style="margin: 0; font-weight: 700; color: var(--text-main);">Dispatch Parts List *</label>
+                <button type="button" class="btn-secondary" id="addDispItemRowBtn" style="padding: 4px 10px; font-size: 0.78rem; font-weight: 600;">
+                  + Add Row
+                </button>
               </div>
-              <div class="form-group" style="margin-bottom: 0;">
-                <label for="disp_date">Dispatch Date *</label>
-                <input type="date" id="disp_date" class="form-control" required value="<?php echo date('Y-m-d'); ?>">
-              </div>
-              <div class="form-group" style="margin-bottom: 0;">
-                <label for="disp_customer">Customer / Destination *</label>
-                <input type="text" id="disp_customer" class="form-control" placeholder="e.g. Apex Motors Ltd." required>
-              </div>
-              <div class="form-group" style="margin-bottom: 0;">
-                <label for="disp_by">Dispatched By *</label>
-                <input type="text" id="disp_by" class="form-control" placeholder="Store Executive" value="<?php echo htmlspecialchars($_SESSION['full_name'] ?? 'Store Executive'); ?>" required>
+
+              <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff;">
+                <table class="simple-table" id="dispItemsTable" style="margin: 0; width: 100%; border: none;">
+                  <thead style="background: #f8fafc;">
+                    <tr>
+                      <th style="width: 36px; text-align: center;">#</th>
+                      <th>Select Finished Part</th>
+                      <th style="width: 130px; text-align: center; white-space: nowrap;">Available Stock</th>
+                      <th style="width: 130px; text-align: center; white-space: nowrap;">Dispatch Qty</th>
+                      <th style="width: 36px; text-align: center;"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="dispItemsTableBody">
+                    <!-- Dynamic rows inserted here -->
+                  </tbody>
+                </table>
               </div>
             </div>
+
+            <!-- General Remarks -->
+            <div class="form-group col-full">
+              <label for="disp_remarks">Remarks</label>
+              <input type="text" id="disp_remarks" class="form-control" placeholder="Optional notes for this delivery challan">
+            </div>
+
           </div>
-
-          <!-- Multiple Dispatch Items Table -->
-          <div style="margin-bottom: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <div>
-                <span style="font-weight: 700; color: #1e293b; font-size: 0.92rem;">Dispatch Parts List</span>
-                <span style="font-size: 0.76rem; color: #64748b; margin-left: 6px;">(You can add multiple parts to dispatch in this single delivery)</span>
-              </div>
-              <button type="button" class="btn-primary" id="addDispItemRowBtn" style="padding: 5px 12px; font-size: 0.82rem; background: #059669; border-color: #047857;">
-                + Add Another Part
-              </button>
-            </div>
-
-            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-              <table class="simple-table" id="dispItemsTable" style="margin: 0; width: 100%; font-size: 0.86rem;">
-                <thead style="background: #f1f5f9;">
-                  <tr>
-                    <th style="width: 36px; text-align: center;">#</th>
-                    <th style="min-width: 280px;">Select Finished Part *</th>
-                    <th style="width: 140px; text-align: center; white-space: nowrap;">Available Stock</th>
-                    <th style="width: 150px; text-align: center; white-space: nowrap;">Dispatch Qty *</th>
-                    <th style="width: 50px; text-align: center;"></th>
-                  </tr>
-                </thead>
-                <tbody id="dispItemsTableBody">
-                  <!-- Dynamic rows will be inserted here -->
-                </tbody>
-              </table>
-            </div>
-            <small style="color: #64748b; font-size: 0.74rem; margin-top: 5px; display: block;">
-              💡 Dispatch quantity will be deducted directly from the available finished goods inventory.
-            </small>
-          </div>
-
-          <!-- General Remarks -->
-          <div class="form-group" style="margin-bottom: 0;">
-            <label for="disp_remarks">Consignment Remarks</label>
-            <input type="text" id="disp_remarks" class="form-control" placeholder="Optional notes for this delivery challan">
-          </div>
-
         </div>
 
         <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-          <span id="dispTotalSummary" style="font-weight: 700; color: #1e293b; font-size: 0.9rem;">
-            Total Parts to Dispatch: <span id="dispItemsCount">0</span>
+          <span id="dispTotalSummary" style="font-weight: 600; color: var(--text-sub); font-size: 0.85rem;">
+            Total Parts: <strong id="dispItemsCount" style="color: var(--text-main);">0</strong>
           </span>
           <div style="display: flex; gap: 8px;">
             <button type="button" class="btn-secondary" id="cancelDispatchBtn">Cancel</button>
@@ -2192,16 +2166,11 @@ $activeMenu = 'fg-store.php';
 
         const invRef = document.getElementById('disp_invoice').value.trim();
         const dDate = document.getElementById('disp_date').value;
-        const cust = document.getElementById('disp_customer').value.trim();
         const dBy = document.getElementById('disp_by').value.trim();
         const dRemarks = document.getElementById('disp_remarks').value.trim();
 
         if (!invRef) {
           showToast('Please enter Invoice / Delivery Challan Ref.', 'error');
-          return;
-        }
-        if (!cust) {
-          showToast('Please enter Customer / Destination Name.', 'error');
           return;
         }
 
@@ -2260,7 +2229,7 @@ $activeMenu = 'fg-store.php';
           action: 'save_dispatch',
           invoice_ref: invRef,
           dispatch_date: dDate,
-          customer: cust,
+          customer: '',
           dispatched_by: dBy,
           remarks: dRemarks,
           items: items
@@ -2296,28 +2265,337 @@ $activeMenu = 'fg-store.php';
         }
       });
 
+      // Print Delivery Challan (DC) Slip on Standard A4 format (Matching MIP Slip design)
+      function printDeliveryChallanSlip(data) {
+        const items = Array.isArray(data.items) && data.items.length > 0 ? data.items : [{
+          partCode: data.partCode || '',
+          partName: data.partName || '',
+          batchNo: data.batchNo || '',
+          qty: parseFloat(data.qty || 0),
+          uom: data.uom || 'PCS'
+        }];
+
+        let totalQty = 0;
+        let itemRowsHtml = '';
+        const primaryUom = items[0]?.uom || 'PCS';
+
+        items.forEach((it, idx) => {
+          totalQty += parseFloat(it.qty || 0);
+          itemRowsHtml += `
+            <tr>
+              <td style="text-align: center; color: #475569;">${idx + 1}</td>
+              <td><strong>${escapeHtml(it.partCode)}</strong></td>
+              <td><strong>${escapeHtml(it.partName)}</strong></td>
+              <td style="text-align: center;">${escapeHtml(it.batchNo || '-')}</td>
+              <td style="text-align: center; font-weight: bold; color: #0f172a;">${formatCleanStockJs(it.qty)}</td>
+              <td style="text-align: center;">${escapeHtml(it.uom || 'PCS')}</td>
+            </tr>
+          `;
+        });
+
+        const printHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Delivery_Challan_${escapeHtml(data.dispatchNo || 'DC')}</title>
+            <style>
+              @page {
+                size: A4 portrait;
+                margin: 14mm 15mm;
+              }
+              * {
+                box-sizing: border-box;
+                font-family: Arial, Helvetica, sans-serif;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                color: #0f172a;
+                font-size: 12px;
+                line-height: 1.4;
+              }
+              .slip-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                border-bottom: 2px solid #0f172a;
+                padding-bottom: 8px;
+                margin-bottom: 14px;
+              }
+              .company-title {
+                font-size: 17px;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 0;
+              }
+              .doc-title {
+                font-size: 12px;
+                font-weight: bold;
+                color: #4f46e5;
+                margin-top: 3px;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+              }
+              .slip-badge {
+                text-align: right;
+              }
+              .slip-no {
+                font-size: 16px;
+                font-weight: bold;
+                color: #0f172a;
+              }
+              .slip-date {
+                font-size: 11.5px;
+                color: #475569;
+                margin-top: 2px;
+              }
+
+              /* Meta Information Table */
+              table.meta-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 16px;
+              }
+              table.meta-table td {
+                padding: 6px 10px;
+                border: 1px solid #94a3b8;
+                font-size: 12px;
+                vertical-align: middle;
+              }
+              table.meta-table td.lbl {
+                background: #f1f5f9;
+                font-weight: bold;
+                width: 20%;
+                color: #334155;
+              }
+              table.meta-table td.val {
+                width: 30%;
+              }
+
+              .section-heading {
+                font-size: 12.5px;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 0.02em;
+                margin-bottom: 6px;
+                color: #0f172a;
+              }
+
+              /* Items Table */
+              table.items-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 25px;
+              }
+              table.items-table th {
+                background: #f1f5f9;
+                border: 1px solid #64748b;
+                padding: 7px 8px;
+                font-size: 11px;
+                text-transform: uppercase;
+                text-align: left;
+                color: #1e293b;
+              }
+              table.items-table td {
+                border: 1px solid #94a3b8;
+                padding: 6px 8px;
+                font-size: 11.5px;
+              }
+
+              /* Signatures Section */
+              table.sig-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 35px;
+              }
+              table.sig-table td {
+                width: 33.33%;
+                border: 1px solid #94a3b8;
+                padding: 10px 12px;
+                font-size: 11px;
+                vertical-align: top;
+                background: #fafafa;
+              }
+              .sig-title {
+                font-weight: bold;
+                color: #334155;
+                text-transform: uppercase;
+                font-size: 11px;
+              }
+              .sig-space {
+                height: 48px;
+              }
+              .sig-line {
+                border-top: 1px dashed #64748b;
+                padding-top: 4px;
+                font-size: 10px;
+                color: #475569;
+              }
+
+              .footer-bar {
+                margin-top: 18px;
+                border-top: 1px solid #cbd5e1;
+                padding-top: 5px;
+                font-size: 10px;
+                color: #64748b;
+                display: flex;
+                justify-content: space-between;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="slip-header">
+              <div>
+                <div class="company-title">WIP Management Portal</div>
+                <div class="doc-title">Finished Goods Delivery Challan (Dispatch Slip)</div>
+              </div>
+              <div class="slip-badge">
+                <div class="slip-no">DC NO: ${escapeHtml(data.dispatchNo || '-')}</div>
+                <div class="slip-date">Date: ${formatDateDMY(data.dispatchDate)}</div>
+              </div>
+            </div>
+
+            <table class="meta-table">
+              <tr>
+                <td class="lbl">Invoice / DC Ref:</td>
+                <td class="val"><strong style="color: #4f46e5;">${escapeHtml(data.invoiceRef || '-')}</strong></td>
+                <td class="lbl">Dispatch Date:</td>
+                <td class="val"><strong>${formatDateDMY(data.dispatchDate)}</strong></td>
+              </tr>
+              <tr>
+                <td class="lbl">Dispatched By:</td>
+                <td class="val"><strong>${escapeHtml(data.dispatchedBy || '-')}</strong></td>
+                <td class="lbl">Dispatch Status:</td>
+                <td class="val"><span style="color: #15803d; font-weight: bold;">DISPATCHED / OUTWARD</span></td>
+              </tr>
+              <tr>
+                <td class="lbl">Consignment Remarks:</td>
+                <td class="val" colspan="3">${escapeHtml(data.remarks || 'None')}</td>
+              </tr>
+            </table>
+
+            <div class="section-heading">Dispatched Finished Goods Items</div>
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th style="width: 35px; text-align: center;">#</th>
+                  <th style="width: 140px;">Part Code</th>
+                  <th>Finished Goods Part Description</th>
+                  <th style="width: 130px; text-align: center;">MIP / Batch Ref</th>
+                  <th style="width: 120px; text-align: center;">Dispatched Qty</th>
+                  <th style="width: 70px; text-align: center;">UOM</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemRowsHtml}
+              </tbody>
+              <tfoot>
+                <tr style="background: #f8fafc; font-weight: bold;">
+                  <td colspan="4" style="text-align: right; padding-right: 12px;">Total Dispatched Quantity:</td>
+                  <td style="text-align: center; color: #4f46e5; font-size: 13px;">${formatCleanStockJs(totalQty)}</td>
+                  <td style="text-align: center;">${escapeHtml(primaryUom)}</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <table class="sig-table">
+              <tr>
+                <td>
+                  <div class="sig-title">DISPATCHED BY (STORE)</div>
+                  <div style="margin: 8px 0 4px; font-size: 12px; font-weight: bold; color: #0f172a;">${escapeHtml(data.dispatchedBy || 'Store Executive')}</div>
+                  <div class="sig-space"></div>
+                  <div class="sig-line">Signature & Date</div>
+                </td>
+                <td>
+                  <div class="sig-title">SECURITY / LOGISTICS IN-CHARGE</div>
+                  <div class="sig-space" style="height: 60px;"></div>
+                  <div class="sig-line">Gate Pass / Vehicle Verified</div>
+                </td>
+                <td>
+                  <div class="sig-title">AUTHORIZED SIGNATORY</div>
+                  <div class="sig-space" style="height: 60px;"></div>
+                  <div class="sig-line">Signature & Date</div>
+                </td>
+              </tr>
+            </table>
+
+            <div class="footer-bar">
+              <span>System Generated Delivery Challan - Finished Goods Store</span>
+              <span>Print Date: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+              <span>Standard A4 Format</span>
+            </div>
+          </body>
+          </html>
+        `;
+
+        let printIframe = document.getElementById('printIframe');
+        if (!printIframe) {
+          printIframe = document.createElement('iframe');
+          printIframe.id = 'printIframe';
+          printIframe.style.position = 'fixed';
+          printIframe.style.right = '0';
+          printIframe.style.bottom = '0';
+          printIframe.style.width = '0';
+          printIframe.style.height = '0';
+          printIframe.style.border = '0';
+          document.body.appendChild(printIframe);
+        }
+
+        const doc = printIframe.contentWindow.document;
+        doc.open();
+        doc.write(printHtml);
+        doc.close();
+
+        setTimeout(() => {
+          printIframe.contentWindow.focus();
+          printIframe.contentWindow.print();
+        }, 300);
+      }
+
       // Print Delivery Challan (DC) Slip from Dispatch Logs Row
       window.printDispatchSlipFromRow = function(btn) {
         const tr = btn.closest('tr');
         if (!tr) return;
         const d = tr.dataset;
 
-        document.getElementById('prn_inward_no').textContent = d.dispatch_no || '-';
-        document.getElementById('prn_inward_date').textContent = formatDateDMY(d.dispatch_date);
-        document.getElementById('prn_part_code').textContent = d.part_code || '-';
-        document.getElementById('prn_part_name').textContent = d.part_name || '-';
-        document.getElementById('prn_batch_no').textContent = d.invoice_ref || '-';
-        document.getElementById('prn_location').textContent = 'FG Store';
-        document.getElementById('prn_inward_qty').textContent = `${formatCleanStockJs(d.dispatch_qty)} ${d.uom || 'PCS'}`;
-        document.getElementById('prn_available_stock').textContent = 'DISPATCHED';
-        document.getElementById('prn_work_order').textContent = d.customer || '-';
-        document.getElementById('prn_received_by').textContent = d.dispatched_by || '-';
-        document.getElementById('prn_remarks').textContent = d.remarks || '-';
+        const dispatchNo = d.dispatch_no;
+        let items = [];
 
-        const titleEl = document.querySelector('#printArea h2');
-        if (titleEl) titleEl.textContent = 'FINISHED GOODS DISPATCH & DELIVERY CHALLAN';
+        // Check if there are other items in the table matching the same dispatch_no
+        const allMatchingRows = document.querySelectorAll(
+          `#dispatchTableBody tr[data-dispatch_no="${dispatchNo}"]`
+        );
 
-        window.print();
+        if (allMatchingRows && allMatchingRows.length > 0) {
+          allMatchingRows.forEach(r => {
+            items.push({
+              partCode: r.dataset.part_code || '',
+              partName: r.dataset.part_name || '',
+              batchNo: r.dataset.batch_no || '',
+              qty: parseFloat(r.dataset.dispatch_qty || 0),
+              uom: r.dataset.uom || 'PCS'
+            });
+          });
+        } else {
+          items.push({
+            partCode: d.part_code || '',
+            partName: d.part_name || '',
+            batchNo: d.batch_no || '',
+            qty: parseFloat(d.dispatch_qty || 0),
+            uom: d.uom || 'PCS'
+          });
+        }
+
+        printDeliveryChallanSlip({
+          dispatchNo: d.dispatch_no,
+          dispatchDate: d.dispatch_date,
+          invoiceRef: d.invoice_ref,
+          dispatchedBy: d.dispatched_by,
+          remarks: d.remarks,
+          items: items
+        });
       };
 
       // Row Actions handler
@@ -2406,30 +2684,54 @@ $activeMenu = 'fg-store.php';
         viewModal.classList.add('active');
       }
 
-      // Populate Print Area
+      // Populate Print Area (Original Tag Design)
       function populatePrintArea(tr) {
-        const d = tr.dataset;
-        const dParts = (d.inward_date || '').split('-');
-        const dateDMY = dParts.length === 3 ? (dParts[2] + '-' + dParts[1] + '-' + dParts[0]) : d.inward_date;
+        const d = (tr && tr.dataset) ? tr.dataset : (tr || {});
+        const dateVal = d.production_date || d.inward_date || d.created_at || '';
+        const dParts = dateVal.split('-');
+        const dateDMY = dParts.length === 3 ? (dParts[2] + '-' + dParts[1] + '-' + dParts[0]) : (dateVal ? formatDateDMY(dateVal) : '-');
 
-        document.getElementById('prn_inward_no').textContent = d.inward_no;
-        document.getElementById('prn_inward_date').textContent = dateDMY;
-        document.getElementById('prn_part_code').textContent = d.part_code;
-        document.getElementById('prn_part_name').textContent = d.part_name;
-        document.getElementById('prn_batch_no').textContent = d.batch_no;
-        document.getElementById('prn_location').textContent = d.location || 'FG Store';
-        document.getElementById('prn_inward_qty').textContent = parseFloat(d.inward_qty).toLocaleString() + ' ' + d.uom;
-        document.getElementById('prn_available_stock').textContent = parseFloat(d.available_stock).toLocaleString() + ' ' + d.uom;
-        document.getElementById('prn_work_order').textContent = d.work_order || '-';
-        document.getElementById('prn_received_by').textContent = d.received_by || '-';
-        document.getElementById('prn_remarks').textContent = d.remarks || '-';
+        const inwQty = parseFloat(d.ok_qty || d.inward_qty || d.available_stock || 0);
+        const availStock = parseFloat(d.available_stock || d.ok_qty || d.inward_qty || 0);
+        const uom = d.uom || 'PCS';
+
+        if (document.getElementById('prn_inward_no')) document.getElementById('prn_inward_no').textContent = d.inward_no || d.mip_no || '-';
+        if (document.getElementById('prn_inward_date')) document.getElementById('prn_inward_date').textContent = dateDMY;
+        if (document.getElementById('prn_part_code')) document.getElementById('prn_part_code').textContent = d.part_code || '-';
+        if (document.getElementById('prn_part_name')) document.getElementById('prn_part_name').textContent = d.part_name || '-';
+        if (document.getElementById('prn_batch_no')) document.getElementById('prn_batch_no').textContent = d.batch_no || d.mip_no || '-';
+        if (document.getElementById('prn_location')) document.getElementById('prn_location').textContent = d.location || 'FG Warehouse';
+        if (document.getElementById('prn_inward_qty')) document.getElementById('prn_inward_qty').textContent = formatCleanStockJs(inwQty) + ' ' + uom;
+        if (document.getElementById('prn_available_stock')) document.getElementById('prn_available_stock').textContent = formatCleanStockJs(availStock) + ' ' + uom;
+        if (document.getElementById('prn_work_order')) document.getElementById('prn_work_order').textContent = d.work_order || '-';
+        if (document.getElementById('prn_received_by')) document.getElementById('prn_received_by').textContent = d.received_by || '-';
+        if (document.getElementById('prn_remarks')) document.getElementById('prn_remarks').textContent = d.remarks || '-';
       }
 
-      window.printRowTag = function(inwardNo) {
-        const tr = fgTableBody.querySelector(`tr[data-inward_no="${inwardNo}"]`);
+      window.printRowTag = function(target) {
+        let tr = null;
+        if (target && target.nodeType === 1) {
+          tr = target.closest('tr');
+        } else if (typeof target === 'string' && target.trim()) {
+          const cleanTarget = target.trim();
+          if (inwardTableBody) {
+            tr = inwardTableBody.querySelector(`tr[data-inward_no="${cleanTarget}"]`) ||
+                 inwardTableBody.querySelector(`tr[data-mip_no="${cleanTarget}"]`);
+          }
+          if (!tr && fgTableBody) {
+            tr = fgTableBody.querySelector(`tr[data-inward_no="${cleanTarget}"]`) ||
+                 fgTableBody.querySelector(`tr[data-part_code="${cleanTarget}"]`);
+          }
+        }
+        if (!tr && currentActiveRow) {
+          tr = currentActiveRow;
+        }
+
         if (tr) {
           populatePrintArea(tr);
           window.print();
+        } else {
+          showToast('Could not find data to print inward tag.', 'error');
         }
       };
 
