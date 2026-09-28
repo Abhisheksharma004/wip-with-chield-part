@@ -32,14 +32,14 @@ if ($pdo) {
 }
 $gradeCount = count($gradesSet);
 
-$pageTitle = 'Child Part Master';
+$pageTitle = 'RM & Child Part Master';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Child Part Master - WIP Management Portal</title>
+  <title>RM & Child Part Master - WIP Management Portal</title>
   
   <!-- Modern Clean Google Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -393,7 +393,7 @@ $pageTitle = 'Child Part Master';
         <div class="stats-row">
           <div class="simple-card stat-box">
             <div class="stat-number" id="statTotalCp"><?php echo $totalCount; ?></div>
-            <div class="stat-title">Total Child Parts</div>
+            <div class="stat-title">Total RM & Child Parts</div>
           </div>
 
           <div class="simple-card stat-box">
@@ -412,11 +412,11 @@ $pageTitle = 'Child Part Master';
              ========================================== -->
         <div class="simple-card table-box">
           <div class="table-bar">
-            <h2 class="box-title">Child Part Directory</h2>
+            <h2 class="box-title">RM & Child Part Directory</h2>
             <div class="table-actions">
               <input type="text" id="cpSearch" class="simple-input" placeholder="Search Code, Name, Grade, Size...">
               <?php if (hasPermission('child_part_master', 'create')): ?>
-              <button type="button" class="btn-primary" id="openAddCpModalBtn">+ Add Child Part</button>
+              <button type="button" class="btn-primary" id="openAddCpModalBtn">+ Add RM & Child Part</button>
               <?php endif; ?>
             </div>
           </div>
@@ -426,8 +426,8 @@ $pageTitle = 'Child Part Master';
               <thead>
                 <tr>
                   <th style="width: 50px;">Sr No.</th>
-                  <th>Child Part Code</th>
-                  <th>Child Part Name</th>
+                  <th>RM & Child Part Code</th>
+                  <th>RM & Child Part Name</th>
                   <th>Grade / Specification</th>
                   <th>Size / Dimension</th>
                   <th>Nos Per K.g</th>
@@ -481,7 +481,7 @@ $pageTitle = 'Child Part Master';
                   <?php endforeach; ?>
                 <?php else: ?>
                   <tr id="emptyTableRow">
-                    <td colspan="10" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>
+                    <td colspan="10" class="empty-row-msg">No RM & child parts found. Click "+ Add RM & Child Part" to create one.</td>
                   </tr>
                 <?php endif; ?>
               </tbody>
@@ -496,12 +496,12 @@ $pageTitle = 'Child Part Master';
   </div>
 
   <!-- ==========================================
-       Add / Edit Child Part Popup Modal
+       Add / Edit RM & Child Part Popup Modal
        ========================================== -->
   <div id="cpPopupModal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title" id="modalFormTitle">+ Add Child Part</h3>
+        <h3 class="modal-title" id="modalFormTitle">+ Add RM & Child Part</h3>
         <button type="button" class="modal-close-btn" id="closeModalBtn" aria-label="Close modal">&times;</button>
       </div>
 
@@ -511,15 +511,15 @@ $pageTitle = 'Child Part Master';
         <div class="modal-body">
           <div class="popup-form-grid">
             
-            <!-- 1. Child Part Code -->
+            <!-- 1. RM & Child Part Code -->
             <div class="cp-form-group">
-              <label for="inputPartCode">Child Part Code *</label>
+              <label for="inputPartCode">RM & Child Part Code *</label>
               <input type="text" id="inputPartCode" class="form-control" placeholder="e.g., CP-1006" required>
             </div>
 
-            <!-- 2. Child Part Name -->
+            <!-- 2. RM & Child Part Name -->
             <div class="cp-form-group">
-              <label for="inputPartName">Child Part Name *</label>
+              <label for="inputPartName">RM & Child Part Name *</label>
               <input type="text" id="inputPartName" class="form-control" placeholder="e.g., Mounting Flange Plate" required>
             </div>
 
@@ -578,7 +578,7 @@ $pageTitle = 'Child Part Master';
         <!-- Action Buttons -->
         <div class="modal-footer">
           <button type="button" class="btn-secondary" id="cancelModalBtn">Cancel</button>
-          <button type="submit" class="btn-primary" id="saveCpSubmitBtn">+ Save Child Part</button>
+          <button type="submit" class="btn-primary" id="saveCpSubmitBtn">+ Save RM & Child Part</button>
         </div>
       </form>
     </div>
@@ -597,7 +597,7 @@ $pageTitle = 'Child Part Master';
         </svg>
       </div>
       <h3 class="confirm-title">Confirm Deletion</h3>
-      <p class="confirm-desc">Are you sure you want to delete child part <strong id="deleteTargetCode" style="color:var(--text-main);"></strong>? This item will be removed from the list.</p>
+      <p class="confirm-desc">Are you sure you want to delete RM & child part <strong id="deleteTargetCode" style="color:var(--text-main);"></strong>? This item will be removed from the list.</p>
       <div class="confirm-actions">
         <button type="button" class="btn-secondary" id="cancelDeleteBtn">Cancel</button>
         <button type="button" class="btn-danger-confirm" id="confirmDeleteBtn">Yes, Delete</button>
@@ -707,7 +707,7 @@ $pageTitle = 'Child Part Master';
           if (!emptyRow) {
             const tr = document.createElement('tr');
             tr.id = 'emptyTableRow';
-            tr.innerHTML = `<td colspan="10" class="empty-row-msg">No child parts found. Click "+ Add Child Part" to create one.</td>`;
+            tr.innerHTML = `<td colspan="10" class="empty-row-msg">No RM & child parts found. Click "+ Add RM & Child Part" to create one.</td>`;
             cpTableBody.appendChild(tr);
           }
         } else if (emptyRow) {
@@ -716,7 +716,7 @@ $pageTitle = 'Child Part Master';
       }
 
       // Open Form Modal
-      function openModal(title = '+ Add Child Part', buttonText = '+ Save Child Part') {
+      function openModal(title = '+ Add RM & Child Part', buttonText = '+ Save RM & Child Part') {
         modalFormTitle.textContent = title;
         saveCpSubmitBtn.textContent = buttonText;
         cpPopupModal.classList.add('active');
@@ -753,7 +753,7 @@ $pageTitle = 'Child Part Master';
           editItemId.value = '';
           document.getElementById('inputStatus').value = 'Active';
           document.getElementById('inputCurrentStock').value = '0';
-          openModal('+ Add Child Part', '+ Save Child Part');
+          openModal('+ Add RM & Child Part', '+ Save RM & Child Part');
         });
       }
 
@@ -896,7 +896,7 @@ $pageTitle = 'Child Part Master';
                 row.children[8].innerHTML = activeTag;
                 row.children[9].innerHTML = actionHtml;
               }
-              showToast(`Child Part "${code}" updated successfully.`, 'success');
+              showToast(`RM & Child Part "${code}" updated successfully.`, 'success');
             } else {
               // Create new row
               const emptyRow = document.getElementById('emptyTableRow');
@@ -920,7 +920,7 @@ $pageTitle = 'Child Part Master';
               `;
               cpTableBody.prepend(tr);
               reindexSrNo();
-              showToast(`New Child Part "${code}" saved successfully.`, 'success');
+              showToast(`New RM & Child Part "${code}" saved successfully.`, 'success');
             }
 
             closeModal();
@@ -966,7 +966,7 @@ $pageTitle = 'Child Part Master';
             document.getElementById('inputStatus').value = status;
 
             editItemId.value = itemId;
-            openModal(`Edit Child Part: ${code}`, 'Update Child Part');
+            openModal(`Edit RM & Child Part: ${code}`, 'Update RM & Child Part');
           }
 
           // Delete Action
@@ -1011,12 +1011,12 @@ $pageTitle = 'Child Part Master';
               pendingDeleteRow.remove();
               reindexSrNo();
               updateCounters();
-              showToast(`Child Part "${code}" deleted successfully.`, 'success');
+              showToast(`RM & Child Part "${code}" deleted successfully.`, 'success');
             } else {
-              showToast(result.message || 'Failed to delete child part from database.', 'error');
+              showToast(result.message || 'Failed to delete RM & child part from database.', 'error');
             }
           } catch (err) {
-            showToast('Network error while deleting child part.', 'error');
+            showToast('Network error while deleting RM & child part.', 'error');
           } finally {
             confirmDeleteBtn.disabled = false;
             confirmDeleteBtn.textContent = 'Yes, Delete';

@@ -869,7 +869,7 @@ if ($pdo) {
               <div class="comp-stock-item">
                 <div>
                   <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="font-size: 0.7rem; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 4px;">CHILD PART</span>
+                    <span style="font-size: 0.7rem; font-weight: 700; background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 4px;">RM & CHILD PART</span>
                     <strong style="font-size: 0.86rem;"><?php echo htmlspecialchars($cp['part_name']); ?></strong>
                   </div>
                   <span style="font-size: 0.74rem; color: var(--dash-muted); font-family: monospace;"><?php echo htmlspecialchars($cp['part_code']); ?></span>

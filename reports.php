@@ -731,8 +731,8 @@ $pdo = getDBConnection();
               <select id="reportType" class="filter-input" onchange="loadReportData();">
                 <option value="production" selected>Daily Production Report (DPR)</option>
                 <option value="mip">Material Issue for Production (MIP)</option>
-                <option value="rm_inward">Raw Material (RM) Inward</option>
-                <option value="child_inward">Child Part Inward</option>
+                <!-- <option value="rm_inward">Raw Material (RM) Inward</option> (Hidden) -->
+                <option value="child_inward">RM & Child Part Inward</option>
                 <option value="fg_dispatch">Finished Goods (FG) Dispatch</option>
                 <option value="inventory">Warehouse Inventory Stocks</option>
               </select>

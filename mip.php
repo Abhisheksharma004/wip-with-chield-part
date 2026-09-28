@@ -750,7 +750,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
             <div class="form-group" id="childPartsSection" style="grid-column: 1 / -1; display: none;">
               <div class="cp-simple-container">
                 <div class="cp-simple-header">
-                  <label>Child Parts Required (BOM)</label>
+                  <label>RM & Child Parts Required (BOM)</label>
                   <span class="cp-simple-badge" id="cpCountBadge"></span>
                 </div>
 
@@ -759,7 +759,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
                     <thead>
                       <tr>
                         <th style="width: 32px; text-align: center;">#</th>
-                        <th>Child Part Code & Name</th>
+                        <th>RM & Child Part Code & Name</th>
                         <th style="width: 95px; text-align: center;">BOM Qty</th>
                         <th style="width: 105px; text-align: center;">Total Req.</th>
                         <th style="width: 110px; text-align: center;">Current Stock</th>
@@ -771,7 +771,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
                     </tbody>
                   </table>
                   <div class="cp-simple-empty" id="cpBomEmpty" style="display: none;">
-                    No child parts configured for this part in Part Master.
+                    No RM & child parts configured for this part in Part Master.
                   </div>
                 </div>
                 <div class="cp-simple-note" id="cpBomSummaryText"></div>
@@ -825,7 +825,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
         <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <div id="modalShortageNotice" style="display: none; color: #dc2626; font-size: 0.82rem; font-weight: 600; align-items: center; gap: 6px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            <span id="modalShortageNoticeText">Child parts stock is insufficient — Save blocked!</span>
+            <span id="modalShortageNoticeText">RM & Child parts stock is insufficient — Save blocked!</span>
           </div>
           <div style="display: flex; gap: 8px; margin-left: auto;">
             <button type="button" class="btn-secondary" id="cancelModalBtn">Cancel</button>
@@ -898,19 +898,19 @@ $pageTitle = 'Material Issue for Production (MIP)';
           </div>
         </div>
 
-        <!-- Child Parts Breakdown Heading -->
+        <!-- RM & Child Parts Breakdown Heading -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <label style="margin: 0; font-size: 0.84rem; font-weight: 700; color: var(--text-main);">Child Parts Used Details</label>
+          <label style="margin: 0; font-size: 0.84rem; font-weight: 700; color: var(--text-main);">RM & Child Parts Used Details</label>
           <span id="viewCpCountBadge" style="font-size: 0.75rem; color: var(--text-sub); font-weight: 500;"></span>
         </div>
 
-        <!-- Child Parts Table -->
+        <!-- RM & Child Parts Table -->
         <div style="width: 100%; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #fff;">
           <table class="cp-simple-table" id="viewCpTable" style="margin: 0; border: none;">
             <thead>
               <tr>
                 <th style="width: 32px; text-align: center;">#</th>
-                <th>Child Part Code & Name</th>
+                <th>RM & Child Part Code & Name</th>
                 <th style="width: 95px; text-align: center;">BOM Qty</th>
                 <th style="width: 110px; text-align: center;">Total Consumed</th>
                 <th style="width: 105px; text-align: center;">Current Stock</th>
@@ -922,7 +922,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
             </tbody>
           </table>
           <div id="viewCpEmpty" style="display: none; padding: 14px; text-align: center; color: var(--text-sub); font-size: 0.82rem;">
-            No child parts configured for this part in Part Master.
+            No RM & child parts configured for this part in Part Master.
           </div>
         </div>
 
@@ -1268,12 +1268,12 @@ $pageTitle = 'Material Issue for Production (MIP)';
             saveBtn.style.opacity = '0.45';
             saveBtn.style.cursor = 'not-allowed';
             saveBtn.style.pointerEvents = 'none';
-            saveBtn.title = 'Cannot Save: Child parts stock is insufficient';
+            saveBtn.title = 'Cannot Save: RM & Child parts stock is insufficient';
           }
           if (modalShortageNotice) {
             modalShortageNotice.style.display = 'flex';
             if (modalShortageNoticeText) {
-              modalShortageNoticeText.textContent = `${totalShortages} child part(s) short — Save blocked!`;
+              modalShortageNoticeText.textContent = `${totalShortages} RM & child part(s) short — Save blocked!`;
             }
           }
 
@@ -1282,9 +1282,9 @@ $pageTitle = 'Material Issue for Production (MIP)';
             <div style="margin-top: 10px; padding: 12px 14px; background: #fef2f2; border: 1.5px solid #f87171; border-radius: 8px; color: #991b1b; display: flex; align-items: flex-start; gap: 10px;">
               <span style="font-size: 1.3rem; line-height: 1;">🚫</span>
               <div style="flex: 1;">
-                <div style="font-weight: 700; font-size: 0.88rem; margin-bottom: 3px;">Material Issue Blocked: Insufficient Child Part Stock</div>
+                <div style="font-weight: 700; font-size: 0.88rem; margin-bottom: 3px;">Material Issue Blocked: Insufficient RM & Child Part Stock</div>
                 <div style="font-size: 0.82rem; line-height: 1.45; color: #b91c1c;">
-                  <strong>${totalShortages} child part(s)</strong> me required quantity (${qtyDesc}) ke anusaar stock kam hai. Production me material issue save karne ka option band kar diya gaya hai. Kripya pehle stock inward karein.
+                  <strong>${totalShortages} RM & child part(s)</strong> me required quantity (${qtyDesc}) ke anusaar stock kam hai. Production me material issue save karne ka option band kar diya gaya hai. Kripya pehle stock inward karein.
                 </div>
               </div>
             </div>
@@ -1307,7 +1307,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
               <div style="margin-top: 10px; padding: 10px 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; color: #15803d; display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 1.15rem; line-height: 1;">✓</span>
                 <div style="font-size: 0.82rem; font-weight: 600;">
-                  Sabhi child parts ka sufficient stock uplabdh hai (${formatStock(rawQty)} ${uom}). Issue save karne ke liye ready hai.
+                  Sabhi RM & child parts ka sufficient stock uplabdh hai (${formatStock(rawQty)} ${uom}). Issue save karne ke liye ready hai.
                 </div>
               </div>
             `;
@@ -1416,7 +1416,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
 
         // Hard validation: Block submission if there are any child part shortages
         if (currentShortages > 0) {
-          showToast(`Cannot save issue: Child parts stock is insufficient (${currentShortageList.join(', ')}). Please replenish stock first.`, 'error');
+          showToast(`Cannot save issue: RM & Child parts stock is insufficient (${currentShortageList.join(', ')}). Please replenish stock first.`, 'error');
           return;
         }
 
@@ -1569,7 +1569,7 @@ $pageTitle = 'Material Issue for Production (MIP)';
 
         let cpRowsHtml = '';
         if (childParts.length === 0) {
-          cpRowsHtml = '<tr><td colspan="5" style="text-align:center; padding:14px; color:#64748b;">No child parts configured for this part in Part Master.</td></tr>';
+          cpRowsHtml = '<tr><td colspan="5" style="text-align:center; padding:14px; color:#64748b;">No RM & child parts configured for this part in Part Master.</td></tr>';
         } else {
           childParts.forEach((cp, idx) => {
             const cCode = cp.code || cp.part_code || '';
@@ -1789,13 +1789,13 @@ $pageTitle = 'Material Issue for Production (MIP)';
               </tr>
             </table>
 
-            <div class="section-heading">Child Parts Consumed / Required Details (BOM)</div>
+            <div class="section-heading">RM & Child Parts Consumed / Required Details (BOM)</div>
             <table class="items-table">
               <thead>
                 <tr>
                   <th style="width:35px; text-align:center;">#</th>
-                  <th style="width:130px;">Child Part Code</th>
-                  <th>Child Part Name</th>
+                  <th style="width:130px;">RM & Child Part Code</th>
+                  <th>RM & Child Part Name</th>
                   <th style="width:110px; text-align:center;">BOM Qty</th>
                   <th style="width:130px; text-align:center;">Total Consumed</th>
                 </tr>
@@ -1920,11 +1920,11 @@ $pageTitle = 'Material Issue for Production (MIP)';
         if (!childParts || childParts.length === 0) {
           viewCpTable.style.display = 'none';
           viewCpEmpty.style.display = 'block';
-          viewCpBadge.textContent = '0 Child Parts';
+          viewCpBadge.textContent = '0 RM & Child Parts';
         } else {
           viewCpTable.style.display = 'table';
           viewCpEmpty.style.display = 'none';
-          viewCpBadge.textContent = `${childParts.length} Child Part${childParts.length > 1 ? 's' : ''}`;
+          viewCpBadge.textContent = `${childParts.length} RM & Child Part${childParts.length > 1 ? 's' : ''}`;
 
           let rowsHtml = '';
           childParts.forEach((cp, idx) => {

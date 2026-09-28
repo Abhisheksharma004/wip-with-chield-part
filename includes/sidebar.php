@@ -8,7 +8,6 @@ $currentScript = $activeMenu ?? basename($_SERVER['PHP_SELF']);
 // Check if any Master sub-item is active
 $isMasterActive = in_array($currentScript, [
     'vendor-master.php', 'vendor-master',
-    'rm-master.php', 'rm-master',
     'child-part-master.php', 'child-part-master',
     'child-master.php', 'child-master',
     'process-master.php', 'process-master',
@@ -28,7 +27,7 @@ $isMasterActive = in_array($currentScript, [
   <nav class="sidebar-menu">
 <?php
 // Master dropdown visibility check
-$canMaster = hasPermission('vendor_master') || hasPermission('rm_master') || hasPermission('child_part_master') || hasPermission('process_master') || hasPermission('part_master');
+$canMaster = hasPermission('vendor_master') || hasPermission('child_part_master') || hasPermission('process_master') || hasPermission('part_master');
 ?>
     <!-- 1. Dashboard -->
     <?php if (hasPermission('dashboard')): ?>
@@ -43,7 +42,7 @@ $canMaster = hasPermission('vendor_master') || hasPermission('rm_master') || has
     </a>
     <?php endif; ?>
 
-    <!-- 2. Master Dropdown (Contains Vendor, RM, Child, Process, Part) -->
+    <!-- 2. Master Dropdown (Contains Vendor, Child Part, Process, Part) -->
     <?php if ($canMaster): ?>
     <div class="sidebar-dropdown <?= $isMasterActive ? 'open' : '' ?>" id="masterDropdown">
       <button type="button" class="dropdown-toggle" id="masterDropdownBtn" aria-expanded="<?= $isMasterActive ? 'true' : 'false' ?>">
@@ -74,27 +73,17 @@ $canMaster = hasPermission('vendor_master') || hasPermission('rm_master') || has
         </a>
         <?php endif; ?>
 
-        <!-- Sub 2. RM Master -->
-        <?php if (hasPermission('rm_master')): ?>
-        <a href="rm-master.php" class="submenu-item <?= ($currentScript === 'rm-master.php' || $currentScript === 'rm-master') ? 'active' : '' ?>">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-          </svg>
-          RM Master
-        </a>
-        <?php endif; ?>
+        <!-- Sub 2. RM Master (Hidden) -->
 
         <!-- Sub 3. Child Part Master -->
         <?php if (hasPermission('child_part_master')): ?>
-        <a href="child-part-master.php" class="submenu-item <?= ($currentScript === 'child-part-master.php' || $currentScript === 'child-part-master' || $currentScript === 'child-master.php') ? 'active' : '' ?>" title="Child Part Master">
+        <a href="child-part-master.php" class="submenu-item <?= ($currentScript === 'child-part-master.php' || $currentScript === 'child-part-master' || $currentScript === 'child-master.php') ? 'active' : '' ?>" title="RM & Child Part Master">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
             <polyline points="2 17 12 22 22 17"></polyline>
             <polyline points="2 12 12 17 22 12"></polyline>
           </svg>
-          Child Part Master
+          RM & Child Part Master
         </a>
         <?php endif; ?>
 
@@ -122,27 +111,17 @@ $canMaster = hasPermission('vendor_master') || hasPermission('rm_master') || has
     </div>
     <?php endif; ?>
 
-    <!-- 5. RM In -->
-    <?php if (hasPermission('rm_in')): ?>
-    <a href="rm-in.php" class="menu-item <?= ($currentScript === 'rm-in.php' || $currentScript === 'rm-in') ? 'active' : '' ?>" title="RM In">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="7 10 12 15 17 10"></polyline>
-        <line x1="12" y1="15" x2="12" y2="3"></line>
-      </svg>
-      RM In
-    </a>
-    <?php endif; ?>
+    <!-- 5. RM In (Hidden) -->
 
     <!-- 6. Child Part In -->
     <?php if (hasPermission('child_part_in')): ?>
-    <a href="child-part-in.php" class="menu-item <?= ($currentScript === 'child-part-in.php' || $currentScript === 'child-part-in') ? 'active' : '' ?>" title="Child Part In">
+    <a href="child-part-in.php" class="menu-item <?= ($currentScript === 'child-part-in.php' || $currentScript === 'child-part-in') ? 'active' : '' ?>" title="RM & Child Part In">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
         <polyline points="2 17 12 22 22 17"></polyline>
         <polyline points="2 12 12 17 22 12"></polyline>
       </svg>
-      Child Part In
+      RM & Child Part In
     </a>
     <?php endif; ?>
 

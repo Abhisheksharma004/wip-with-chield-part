@@ -552,7 +552,7 @@ $pageTitle = 'Part Master';
 
           <div class="simple-card stat-box">
             <div class="stat-number in-progress" id="statChildPartsPt"><?php echo $totalChildPartsCount; ?></div>
-            <div class="stat-title">Mapped Child Parts</div>
+            <div class="stat-title">Mapped RM & Child Parts</div>
           </div>
         </div>
 
@@ -563,7 +563,7 @@ $pageTitle = 'Part Master';
           <div class="table-bar">
             <h2 class="box-title">Part Master Directory</h2>
             <div class="table-actions">
-              <input type="text" id="ptSearch" class="simple-input" placeholder="Search Part Code, Name, Child Parts...">
+              <input type="text" id="ptSearch" class="simple-input" placeholder="Search Part Code, Name, RM & Child Parts...">
               <?php if (hasPermission('part_master', 'create')): ?>
               <button type="button" class="btn-primary" id="openAddPtModalBtn">+ Add Part</button>
               <?php endif; ?>
@@ -577,7 +577,7 @@ $pageTitle = 'Part Master';
                   <th style="width: 50px;">Sr No.</th>
                   <th style="width: 140px;">Part Code</th>
                   <th>Part Name</th>
-                  <th>Child Parts</th>
+                  <th>RM & Child Parts</th>
                   <th style="width: 90px;">Status</th>
                   <th style="width: 120px;">Action</th>
                 </tr>
@@ -682,11 +682,11 @@ $pageTitle = 'Part Master';
 
           </div>
 
-          <!-- Clean Child Parts Section -->
+          <!-- Clean RM & Child Parts Section -->
           <div class="cp-section">
             <div class="cp-header">
-              <label class="cp-label">Child Parts</label>
-              <button type="button" class="btn-add-cp" id="btnAddCpRow">+ Add Child Part</button>
+              <label class="cp-label">RM & Child Parts</label>
+              <button type="button" class="btn-add-cp" id="btnAddCpRow">+ Add RM & Child Part</button>
             </div>
 
             <div id="cpRowsContainer" class="cp-rows">
@@ -864,7 +864,7 @@ $pageTitle = 'Part Master';
         const row = document.createElement('div');
         row.className = 'cp-row';
 
-        let optionsHtml = '<option value="">-- Select Child Part --</option>';
+        let optionsHtml = '<option value="">-- Select RM & Child Part --</option>';
         availableChildParts.forEach(cp => {
           const isSelected = (cp.part_code === selectedCode) ? 'selected' : '';
           const label = `${cp.part_code} - ${cp.part_name}` + (cp.uom ? ` (${cp.uom})` : '');
@@ -896,7 +896,7 @@ $pageTitle = 'Part Master';
       }
 
       function showEmptyNotice() {
-        cpRowsContainer.innerHTML = `<div class="cp-empty-notice" id="cpEmptyNotice">No child parts added. Click "+ Add Child Part" to attach one.</div>`;
+        cpRowsContainer.innerHTML = `<div class="cp-empty-notice" id="cpEmptyNotice">No RM & child parts added. Click "+ Add RM & Child Part" to attach one.</div>`;
       }
 
       function addCpRow(selectedCode = '', qty = 1) {

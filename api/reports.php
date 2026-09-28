@@ -256,8 +256,8 @@ try {
             'vendor_name' => 'Supplier / Vendor',
             'invoice_no' => 'Invoice No',
             'invoice_date' => 'Invoice Date',
-            'part_code' => 'Child Part Code',
-            'part_name' => 'Child Part Name',
+            'part_code' => 'RM & Child Part Code',
+            'part_name' => 'RM & Child Part Name',
             'received_qty' => 'Received Qty',
             'uom' => 'UOM'
         ];
@@ -331,14 +331,9 @@ try {
     // 6. INVENTORY STOCKS REPORT
     // -------------------------------------------------------------
     elseif ($reportType === 'inventory') {
-        // Fetch combined inventory items
+        // Fetch combined inventory items (Excluding RM as hidden)
         $sql = "
-            SELECT 'Raw Material' AS item_type, rm_code AS code, rm_name AS name,
-                   current_stock, uom, status,
-                   CONVERT(VARCHAR(19), updated_at, 120) AS last_updated
-            FROM rm_master
-            UNION ALL
-            SELECT 'Child Part' AS item_type, part_code AS code, part_name AS name,
+            SELECT 'RM & Child Part' AS item_type, part_code AS code, part_name AS name,
                    current_stock, uom, status,
                    CONVERT(VARCHAR(19), updated_at, 120) AS last_updated
             FROM child_part_master

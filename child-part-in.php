@@ -70,7 +70,7 @@ if ($pdo) {
 
             $entry['item_count'] = $itemCount;
             $entry['part_code'] = ($itemCount === 1) ? ($firstItem['part_code'] ?? '') : (($firstItem['part_code'] ?? '') . " (+" . ($itemCount - 1) . " more)");
-            $entry['part_name'] = ($itemCount === 1) ? ($firstItem['part_name'] ?? '') : ($itemCount . " Child Part Items");
+            $entry['part_name'] = ($itemCount === 1) ? ($firstItem['part_name'] ?? '') : ($itemCount . " RM & Child Part Items");
             $entry['uom'] = $firstItem['uom'] ?? ($entry['uom'] ?? 'NOS');
             $entry['items_data'] = json_encode($itemsList, JSON_UNESCAPED_UNICODE);
 
@@ -98,14 +98,14 @@ function formatDateDMY($dateStr) {
     return $ts ? date('d-m-Y', $ts) : $dateStr;
 }
 
-$pageTitle = 'Child Part Inward';
+$pageTitle = 'RM & Child Part Inward';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Child Part Inward (Child Part In) - WIP Management Portal</title>
+  <title>RM & Child Part Inward (RM & Child Part In) - WIP Management Portal</title>
   
   <!-- Modern Clean Google Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -464,11 +464,11 @@ $pageTitle = 'Child Part Inward';
         <!-- Table Card -->
         <div class="simple-card table-box">
           <div class="table-bar">
-            <h2 class="box-title">Child Part Inward Register</h2>
+            <h2 class="box-title">RM & Child Part Inward Register</h2>
             <div class="table-actions">
-              <input type="text" id="inwardSearch" class="simple-input" placeholder="Search Vendor, Invoice No, Child Part...">
+              <input type="text" id="inwardSearch" class="simple-input" placeholder="Search Vendor, Invoice No, RM & Child Part...">
               <?php if (hasPermission('child_part_in', 'create')): ?>
-              <button type="button" class="btn-primary" id="openAddModalBtn">+ Inward Child Part</button>
+              <button type="button" class="btn-primary" id="openAddModalBtn">+ Inward RM & Child Part</button>
               <?php endif; ?>
             </div>
           </div>
@@ -482,7 +482,7 @@ $pageTitle = 'Child Part Inward';
                   <th>Vendor</th>
                   <th>Invoice / Challan No.</th>
                   <th style="width: 120px;">Invoice Date</th>
-                  <th>Child Part Item</th>
+                  <th>RM & Child Part Item</th>
                   <th style="width: 140px;">Received Qty</th>
                   <th style="width: 175px; text-align: center;">Action</th>
                 </tr>
@@ -534,7 +534,7 @@ $pageTitle = 'Child Part Inward';
                       <td>
                         <div class="col-cp-info">
                           <?php if ($itemCount > 1): ?>
-                            <strong style="color: var(--primary);"><?php echo $itemCount; ?> Child Parts</strong>
+                            <strong style="color: var(--primary);"><?php echo $itemCount; ?> RM & Child Parts</strong>
                             <span class="sub-meta"><?php echo htmlspecialchars($item['part_code']); ?></span>
                           <?php else: ?>
                             <strong><?php echo htmlspecialchars($item['part_code']); ?></strong>
@@ -564,7 +564,7 @@ $pageTitle = 'Child Part Inward';
                   <?php endforeach; ?>
                 <?php else: ?>
                   <tr id="emptyTableRow">
-                    <td colspan="8" class="empty-row-msg">No Child Part inward records found. Click "+ Inward Child Part" to create one.</td>
+                    <td colspan="8" class="empty-row-msg">No RM & Child Part inward records found. Click "+ Inward RM & Child Part" to create one.</td>
                   </tr>
                 <?php endif; ?>
               </tbody>
@@ -579,12 +579,12 @@ $pageTitle = 'Child Part Inward';
   </div>
 
   <!-- ==========================================
-       Add / Edit Child Part Inward Popup Modal
+       Add / Edit RM & Child Part Inward Popup Modal
        ========================================== -->
   <div id="cpInPopupModal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title" id="modalFormTitle">+ Inward Child Part</h3>
+        <h3 class="modal-title" id="modalFormTitle">+ Inward RM & Child Part</h3>
         <button type="button" class="modal-close-btn" id="closeModalBtn" aria-label="Close modal">&times;</button>
       </div>
 
@@ -621,11 +621,11 @@ $pageTitle = 'Child Part Inward';
               <input type="date" id="inputInvoiceDate" class="form-control">
             </div>
 
-            <!-- Multiple Child Part Items Section -->
+            <!-- Multiple RM & Child Part Items Section -->
             <div style="grid-column: 1 / -1; margin-top: 6px;">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                <label style="font-size: 0.84rem; font-weight: 700; color: var(--text-main);">Child Part Items *</label>
-                <button type="button" id="btnAddItemRow" class="btn-add-item-row" title="Add another child part item">+ Add More Item</button>
+                <label style="font-size: 0.84rem; font-weight: 700; color: var(--text-main);">RM & Child Part Items *</label>
+                <button type="button" id="btnAddItemRow" class="btn-add-item-row" title="Add another item">+ Add More Item</button>
               </div>
 
               <div id="itemsContainer" style="display: flex; flex-direction: column; gap: 10px;">
@@ -648,11 +648,11 @@ $pageTitle = 'Child Part Inward';
   <!-- Item Row Template for Multiple Items -->
   <template id="itemRowTemplate">
     <div class="cp-item-row">
-      <!-- Child Part Item -->
+      <!-- RM & Child Part Item -->
       <div class="inw-form-group item-col-cp">
-        <label class="item-field-label">Child Part *</label>
+        <label class="item-field-label">RM & Child Part *</label>
         <select class="form-control item-part-code" required>
-          <option value="">-- Select Child Part --</option>
+          <option value="">-- Select RM & Child Part --</option>
           <?php foreach ($activeChildParts as $cp): ?>
             <option value="<?php echo htmlspecialchars($cp['part_code']); ?>" 
                     data-name="<?php echo htmlspecialchars($cp['part_name']); ?>" 
@@ -715,10 +715,10 @@ $pageTitle = 'Child Part Inward';
           </div>
         </div>
 
-        <!-- Child Parts Table Section -->
+        <!-- RM & Child Parts Table Section -->
         <div style="margin-top: 18px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Child Part Items & Quantities</div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">RM & Child Part Items & Quantities</div>
             <span id="viewItemsCountBadge" class="tag tag-completed">0 Items</span>
           </div>
 
@@ -727,7 +727,7 @@ $pageTitle = 'Child Part Inward';
               <thead>
                 <tr style="background: #f1f5f9; border-bottom: 1px solid var(--border);">
                   <th style="padding: 9px 12px; width: 45px; color: var(--text-sub); font-weight: 600; text-align: center;">#</th>
-                  <th style="padding: 9px 12px; color: var(--text-sub); font-weight: 600;">Child Part</th>
+                  <th style="padding: 9px 12px; color: var(--text-sub); font-weight: 600;">RM & Child Part</th>
                   <th style="padding: 9px 12px; text-align: right; width: 130px; color: var(--text-sub); font-weight: 600;">Received Qty</th>
                   <th style="padding: 9px 12px; text-align: center; width: 70px; color: var(--text-sub); font-weight: 600;">UOM</th>
                 </tr>
@@ -914,7 +914,7 @@ $pageTitle = 'Child Part Inward';
       // 4. Modal Open & Close
       function openModal(isEdit = false, editItemData = null) {
         if (!isEdit) {
-          modalTitle.textContent = '+ Inward Child Part';
+          modalTitle.textContent = '+ Inward RM & Child Part';
           saveSubmitBtn.textContent = '+ Save Inward Entry';
           form.reset();
           editItemId.value = '';
@@ -927,7 +927,7 @@ $pageTitle = 'Child Part Inward';
           addItemRow();
           if (btnAddItemRow) btnAddItemRow.style.display = 'inline-flex';
         } else {
-          modalTitle.textContent = 'Edit Child Part Inward';
+          modalTitle.textContent = 'Edit RM & Child Part Inward';
           saveSubmitBtn.textContent = 'Update Inward Entry';
           itemsContainer.innerHTML = '';
           if (Array.isArray(editItemData) && editItemData.length > 0) {
@@ -989,7 +989,7 @@ $pageTitle = 'Child Part Inward';
           if (!emptyRow) {
             const tr = document.createElement('tr');
             tr.id = 'emptyTableRow';
-            tr.innerHTML = `<td colspan="8" class="empty-row-msg">No Child Part inward records found. Click "+ Inward Child Part" to create one.</td>`;
+            tr.innerHTML = `<td colspan="8" class="empty-row-msg">No RM & Child Part inward records found. Click "+ Inward RM & Child Part" to create one.</td>`;
             tableBody.appendChild(tr);
           }
         } else if (emptyRow) {
@@ -1045,7 +1045,7 @@ $pageTitle = 'Child Part Inward';
         }
 
         if (items.length === 0) {
-          showToast('Please select at least one Child Part item and enter a valid quantity.', 'error');
+          showToast('Please select at least one RM & Child Part item and enter a valid quantity.', 'error');
           return;
         }
 
@@ -1086,7 +1086,7 @@ $pageTitle = 'Child Part Inward';
               row.dataset.id = savedData.id;
               updateTableRow(row, savedData);
             }
-            showToast(data.message || 'Child Part Inward entry updated successfully!', 'success');
+            showToast(data.message || 'RM & Child Part Inward entry updated successfully!', 'success');
           } else {
             // Prepend new single row
             const emptyRow = document.getElementById('emptyTableRow');
@@ -1094,7 +1094,7 @@ $pageTitle = 'Child Part Inward';
 
             const newRow = createTableRow(savedData);
             tableBody.insertBefore(newRow, tableBody.firstChild);
-            showToast(data.message || 'Child Part Inward entry created successfully!', 'success');
+            showToast(data.message || 'RM & Child Part Inward entry created successfully!', 'success');
           }
 
           closeModal();
@@ -1163,7 +1163,7 @@ $pageTitle = 'Child Part Inward';
           : `<span style="color:var(--text-sub);">-</span>`;
 
         const cpInfoHtml = itemCount > 1 ? `
-          <strong style="color: var(--primary);">${itemCount} Child Parts</strong>
+          <strong style="color: var(--primary);">${itemCount} RM & Child Parts</strong>
           <span class="sub-meta">${escapeHtml(item.part_code)}</span>
         ` : `
           <strong>${escapeHtml(item.part_code)}</strong>
@@ -1376,7 +1376,7 @@ $pageTitle = 'Child Part Inward';
               }, 200);
             }
 
-            showToast(data.message || 'Child Part Inward entry deleted successfully.', 'success');
+            showToast(data.message || 'RM & Child Part Inward entry deleted successfully.', 'success');
             closeDeleteModal();
 
           } catch (err) {

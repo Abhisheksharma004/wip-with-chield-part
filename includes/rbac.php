@@ -17,12 +17,12 @@ function getPortalModules() {
     return [
         'dashboard'         => ['name' => 'Dashboard', 'script' => 'dashboard.php', 'icon' => 'grid'],
         'vendor_master'     => ['name' => 'Vendor Master', 'script' => 'vendor-master.php', 'icon' => 'truck'],
-        'rm_master'         => ['name' => 'Raw Material (RM) Master', 'script' => 'rm-master.php', 'icon' => 'box'],
-        'child_part_master' => ['name' => 'Child Part Master', 'script' => 'child-part-master.php', 'icon' => 'layers'],
+        // 'rm_master'         => ['name' => 'Raw Material (RM) Master', 'script' => 'rm-master.php', 'icon' => 'box'], // Hidden as requested
+        'child_part_master' => ['name' => 'RM & Child Part Master', 'script' => 'child-part-master.php', 'icon' => 'layers'],
         'process_master'    => ['name' => 'Process Master', 'script' => 'process-master.php', 'icon' => 'settings'],
         'part_master'       => ['name' => 'Part Master', 'script' => 'part-master.php', 'icon' => 'tool'],
-        'rm_in'             => ['name' => 'RM Inward', 'script' => 'rm-in.php', 'icon' => 'download'],
-        'child_part_in'     => ['name' => 'Child Part Inward', 'script' => 'child-part-in.php', 'icon' => 'arrow-down-circle'],
+        // 'rm_in'             => ['name' => 'RM Inward', 'script' => 'rm-in.php', 'icon' => 'download'], // Hidden as requested
+        'child_part_in'     => ['name' => 'RM & Child Part Inward', 'script' => 'child-part-in.php', 'icon' => 'arrow-down-circle'],
         'mip'               => ['name' => 'Material Issue for Production (MIP)', 'script' => 'mip.php', 'icon' => 'send'],
         'production'        => ['name' => 'Production Entry / DPR', 'script' => 'production.php', 'icon' => 'activity'],
         'fg_store'          => ['name' => 'Finished Goods (FG) Store', 'script' => 'fg-store.php', 'icon' => 'archive'],

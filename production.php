@@ -833,7 +833,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                   <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                    Child Part Details (BOM):
+                    RM & Child Part Details (BOM):
                   </span>
                   <span id="childPartsCountBadge" style="font-size: 0.7rem; padding: 1px 7px; border-radius: 10px; background: #e0f2fe; color: #0369a1; font-weight: 600; border: 1px solid #bae6fd;">
                     0 Items
@@ -844,8 +844,8 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
                     <thead style="background: #f8fafc;">
                       <tr>
                         <th style="padding: 6px 10px; width: 35px; text-align: center;">#</th>
-                        <th style="padding: 6px 10px;">Child Part Code</th>
-                        <th style="padding: 6px 10px;">Child Part Name</th>
+                        <th style="padding: 6px 10px;">RM & Child Part Code</th>
+                        <th style="padding: 6px 10px;">RM & Child Part Name</th>
                         <th style="padding: 6px 10px; text-align: center;">BOM Ratio</th>
                         <th style="padding: 6px 10px; text-align: center;">Total Issued / Req. Qty</th>
                         <th style="padding: 6px 10px; text-align: center;">UOM</th>
@@ -1041,12 +1041,12 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           <div><strong>Material Received By:</strong> <span id="vReceivedBy">-</span></div>
         </div>
 
-        <!-- Child Parts / BOM Breakdown -->
+        <!-- RM & Child Parts / BOM Breakdown -->
         <div id="vChildPartsSection">
           <div style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; color: #334155; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
             <span style="display: flex; align-items: center; gap: 5px;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              Child Parts / BOM Requirements:
+              RM & Child Parts / BOM Requirements:
             </span>
             <span id="vChildPartsCount" style="font-size: 0.7rem; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 1px 7px; border-radius: 10px;">0 Items</span>
           </div>
@@ -1055,8 +1055,8 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
               <thead style="background: #f8fafc;">
                 <tr>
                   <th style="padding: 5px 8px; width: 30px; text-align: center;">#</th>
-                  <th style="padding: 5px 8px;">Child Part Code</th>
-                  <th style="padding: 5px 8px;">Child Part Name</th>
+                  <th style="padding: 5px 8px;">RM & Child Part Code</th>
+                  <th style="padding: 5px 8px;">RM & Child Part Name</th>
                   <th style="padding: 5px 8px; text-align: center;">Ratio</th>
                   <th style="padding: 5px 8px; text-align: center;">Req. Qty</th>
                   <th style="padding: 5px 8px; text-align: center;">UOM</th>
@@ -1410,7 +1410,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
           tbody.innerHTML = `
             <tr>
               <td colspan="6" style="padding: 8px 10px; text-align: center; color: #94a3b8; font-style: italic;">
-                No child parts linked with this assembly / MIP slip
+                No RM & child parts linked with this assembly / MIP slip
               </td>
             </tr>
           `;
@@ -1846,7 +1846,7 @@ $pageTitle = 'Production Entry / Daily Production Report (DPR)';
             });
           } else {
             if (vCpCount) vCpCount.textContent = '0 Items';
-            vCpBody.innerHTML = `<tr><td colspan="6" style="padding: 8px; text-align: center; color: #94a3b8; font-style: italic;">No child parts linked with this assembly</td></tr>`;
+            vCpBody.innerHTML = `<tr><td colspan="6" style="padding: 8px; text-align: center; color: #94a3b8; font-style: italic;">No RM & child parts linked with this assembly</td></tr>`;
           }
         }
 
